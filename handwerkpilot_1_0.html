@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>HandwerkPilot AI</title>
+<meta name="theme-color" content="#111827">
+<style>
+:root{--bg:#f4f6f8;--card:#fff;--ink:#172033;--muted:#697386;--dark:#111827;--line:#dfe4ea;--soft:#eef2f6;--accent:#2563eb;--ok:#0f8a5f;--danger:#b42318}
+*{box-sizing:border-box}html{scroll-behavior:smooth}
+body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;background:var(--bg);color:var(--ink)}
+button,input,textarea,select{font:inherit}button{cursor:pointer}
+.app{max-width:1040px;margin:auto;padding:16px 14px 42px}
+.topbar{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:4px 0 12px}.brand{font-weight:900;font-size:19px}
+.iconbtn{border:0;background:var(--soft);border-radius:12px;padding:10px 12px;font-weight:800}
+.hero{background:var(--dark);color:#fff;border-radius:24px;padding:28px 22px;margin-bottom:16px}.hero h1{font-size:38px;line-height:1.05;margin:8px 0 10px}.hero p{color:#dbe3ef;line-height:1.5;margin:0}
+.badge{display:inline-block;background:#fff;color:var(--dark);padding:7px 11px;border-radius:999px;font-size:13px;font-weight:900}
+.card{background:var(--card);border-radius:20px;padding:20px;margin:14px 0;box-shadow:0 8px 26px rgba(0,0,0,.05)}.card h2{margin:0 0 10px}
+.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.tile{background:#f8fafc;border:1px solid var(--line);border-radius:16px;padding:18px;text-align:left;color:var(--ink);font-weight:900;min-height:95px}.tile small{display:block;font-weight:500;color:var(--muted);margin-top:6px;line-height:1.35}
+.formgrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.full{grid-column:1/-1}
+label{display:block;font-size:13px;font-weight:800;color:#465166;margin:8px 0 6px}
+input,textarea,select{width:100%;border:1px solid var(--line);background:#fff;color:var(--ink);border-radius:12px;padding:13px}textarea{min-height:105px;resize:vertical}
+.actions{display:flex;gap:9px;flex-wrap:wrap;margin-top:14px}.btn{border:0;border-radius:12px;padding:13px 15px;font-weight:900}
+.primary{background:var(--dark);color:#fff}.secondary{background:var(--soft);color:var(--ink)}.accent{background:var(--accent);color:#fff}.danger{background:#fff0ef;color:var(--danger)}
+.hidden{display:none!important}.status{font-size:13px;color:var(--muted);margin-top:9px}
+.output{display:none;margin-top:16px;white-space:pre-wrap;background:#f8fafc;border:1px solid var(--line);border-radius:15px;padding:16px;line-height:1.55}
+.list{display:grid;gap:10px}.item{border:1px solid var(--line);border-radius:14px;padding:14px;background:#fafbfd}.item strong{display:block}.item small{color:var(--muted)}
+.row{display:flex;justify-content:space-between;gap:10px;align-items:flex-start}.chips{display:flex;gap:7px;flex-wrap:wrap;margin-top:8px}.chip{background:var(--soft);padding:6px 9px;border-radius:999px;font-size:12px}
+.kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:12px 0}.kpi{background:#f8fafc;border:1px solid var(--line);border-radius:14px;padding:14px}.kpi b{display:block;font-size:22px;margin-top:4px}
+.posrow{display:grid;grid-template-columns:2fr .7fr .8fr .9fr auto;gap:8px;margin-bottom:8px;align-items:end}.posrow button{height:45px}
+.totals{max-width:390px;margin-left:auto;margin-top:14px}.total{display:flex;justify-content:space-between;padding:6px 0}.total.big{font-size:20px;font-weight:900;border-top:2px solid var(--dark);padding-top:11px;margin-top:5px}
+.sectiontitle{display:flex;justify-content:space-between;gap:10px;align-items:center;margin-bottom:8px}.note{background:#fff8e6;border:1px solid #ecd9a0;border-radius:12px;padding:12px;font-size:13px;line-height:1.45}
+footer{text-align:center;color:var(--muted);font-size:12px;margin-top:20px}
+@media(max-width:760px){.grid,.formgrid{grid-template-columns:1fr}.full{grid-column:auto}.hero h1{font-size:34px}.kpis{grid-template-columns:1fr}.posrow{grid-template-columns:1fr 1fr}.posrow .wide{grid-column:1/-1}}
+@media print{body{background:#fff}.noprint,.topbar,.hero,#dashboard,#settings,#customers,#archive{display:none!important}.app{max-width:none;padding:0}.card{box-shadow:none;border:0;padding:0;margin:0}#workspace{display:block!important}.actions,.status{display:none!important}.output{display:block!important;border:0;background:#fff;padding:0}}
+</style>
+</head>
+<body>
+<div class="app">
+<div class="topbar noprint"><div class="brand">HandwerkPilot AI</div><div><button class="iconbtn" onclick="showCustomers()">👥 Kunden</button> <button class="iconbtn" onclick="showArchive()">🗂️ Archiv</button> <button class="iconbtn" onclick="showSettings()">⚙️</button></div></div>
+<section class="hero noprint"><div class="badge">Handwerk + KI</div><h1>Dein digitaler Büroassistent</h1><p>Angebote, Rechnungen, Baustellenberichte, Kundenmails und Leistungsbeschreibungen direkt vom Handy erstellen.</p></section>
+<section id="dashboard" class="card noprint"><div class="sectiontitle"><h2>Was möchtest du erledigen?</h2><span class="chip">Version 1.0</span></div>
+<div class="kpis"><div class="kpi">Kunden<b id="kpiCustomers">0</b></div><div class="kpi">Gespeicherte Dokumente<b id="kpiDocs">0</b></div><div class="kpi">Offene Entwürfe<b id="kpiDrafts">0</b></div></div>
+<div class="grid">
+<button class="tile" onclick="openTool('angebot')">🧾 Angebot<small>Positionen, Kalkulation, KI-Text, PDF</small></button>
+<button class="tile" onclick="openTool('rechnung')">💶 Rechnung<small>Netto, MwSt., Brutto und Zahlungsziel</small></button>
+<button class="tile" onclick="openTool('bericht')">🛠️ Baustellenbericht<small>Arbeiten, Personal, Behinderungen, offene Punkte</small></button>
+<button class="tile" onclick="openTool('mail')">✉️ Kundenmail<small>Professionell, freundlich oder bestimmt formulieren</small></button>
+<button class="tile" onclick="openTool('leistung')">📋 Leistungsbeschreibung<small>Technisch sauber für Angebot oder Ausschreibung</small></button>
+<button class="tile" onclick="openTool('assistent')">🤖 KI-Assistent<small>Freie Aufgabe per Text oder Sprache</small></button>
+</div></section>
+
+<section id="workspace" class="card hidden"><div class="actions noprint" style="margin-top:0"><button class="btn secondary" onclick="home()">← Startseite</button></div><h2 id="toolTitle"></h2><div id="toolForm"></div>
+<div class="actions noprint"><button class="btn primary" onclick="generateAI()">✨ Mit KI erstellen</button><button class="btn secondary" onclick="saveDraft()">Entwurf speichern</button><button class="btn secondary" onclick="saveDocument()">Im Archiv speichern</button><button class="btn secondary" onclick="copyOutput()">Kopieren</button><button class="btn secondary" onclick="window.print()">PDF / Drucken</button></div>
+<div id="status" class="status noprint"></div><div id="output" class="output"></div></section>
+
+<section id="customers" class="card hidden noprint"><div class="actions" style="margin-top:0"><button class="btn secondary" onclick="home()">← Startseite</button></div><h2>Kundenverwaltung</h2>
+<div class="formgrid"><div><label>Name / Firma</label><input id="cName"></div><div><label>Ansprechpartner</label><input id="cPerson"></div><div><label>E-Mail</label><input id="cEmail"></div><div><label>Telefon</label><input id="cPhone"></div><div class="full"><label>Anschrift</label><input id="cAddress"></div></div>
+<div class="actions"><button class="btn primary" onclick="addCustomer()">Kunde speichern</button></div><div id="customerList" class="list" style="margin-top:14px"></div></section>
+
+<section id="archive" class="card hidden noprint"><div class="actions" style="margin-top:0"><button class="btn secondary" onclick="home()">← Startseite</button></div><h2>Archiv</h2><div id="archiveList" class="list"></div></section>
+
+<section id="settings" class="card hidden noprint"><div class="actions" style="margin-top:0"><button class="btn secondary" onclick="home()">← Startseite</button></div><h2>Firmeneinstellungen</h2>
+<div class="formgrid"><div><label>Firma</label><input id="firma"></div><div><label>Ansprechpartner</label><input id="ansp"></div><div><label>E-Mail</label><input id="email"></div><div><label>Telefon</label><input id="tel"></div><div class="full"><label>Anschrift</label><input id="adresse"></div><div><label>USt-ID / Steuernummer</label><input id="taxid"></div><div><label>IBAN</label><input id="iban"></div><div><label>Standard MwSt. %</label><input id="vat" type="number" value="19"></div><div><label>Standard Zahlungsziel</label><input id="payterm" value="14 Tage netto"></div></div>
+<div class="actions"><button class="btn primary" onclick="saveCompany()">Speichern</button><button class="btn secondary" onclick="exportData()">Daten exportieren</button><label class="btn secondary" style="display:inline-block">Daten importieren<input type="file" accept=".json" onchange="importData(event)" style="display:none"></label></div>
+<div id="settingsStatus" class="status"></div><div class="note" style="margin-top:14px">Die Daten werden in dieser Version lokal auf dem Gerät gespeichert. Für mehrere Mitarbeiter und geräteübergreifende Nutzung wäre als nächster Schritt eine Datenbank mit Login nötig.</div></section>
+<footer>HandwerkPilot AI · Version 1.0</footer>
+</div>
+
+<script>
+let currentTool='angebot',positions=[{desc:'',qty:1,unit:'Stk.',price:0}];
+const $=id=>document.getElementById(id),v=id=>($(id)?.value||'').trim(),money=n=>new Intl.NumberFormat('de-DE',{style:'currency',currency:'EUR'}).format(Number(n)||0),esc=s=>String(s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]));
+function dataGet(k,f){try{return JSON.parse(localStorage.getItem(k))??f}catch{return f}} function dataSet(k,v){localStorage.setItem(k,JSON.stringify(v))}
+function company(){const c=dataGet('hp_company',{});return [c.firma,c.ansp,c.adresse,c.email,c.tel,c.taxid,c.iban].filter(Boolean).join(' | ')}
+const customersData=()=>dataGet('hp_customers',[]),docsData=()=>dataGet('hp_docs',[]),draftsData=()=>dataGet('hp_drafts',[]);
+function hideAll(){['dashboard','workspace','customers','archive','settings'].forEach(id=>$(id).classList.add('hidden'))} function home(){hideAll();$('dashboard').classList.remove('hidden');refreshKPIs()}
+function showCustomers(){hideAll();$('customers').classList.remove('hidden');renderCustomers()} function showArchive(){hideAll();$('archive').classList.remove('hidden');renderArchive()} function showSettings(){hideAll();$('settings').classList.remove('hidden');loadCompanyForm()}
+const toolTitles={angebot:'Angebot erstellen',rechnung:'Rechnung erstellen',bericht:'Baustellenbericht',mail:'Kundenmail schreiben',leistung:'Leistungsbeschreibung',assistent:'KI-Assistent'};
+function customerOptions(){return `<option value="">— Kunde wählen —</option>`+customersData().map((c,i)=>`<option value="${i}">${esc(c.name)}</option>`).join('')}
+const forms={
+angebot:()=>`<div class="formgrid"><div><label>Kunde aus Liste</label><select id="customerSelect" onchange="fillCustomer('angebot')">${customerOptions()}</select></div><div><label>Kunde / Firma</label><input id="kunde"></div><div><label>Baustelle / Ort</label><input id="ort"></div><div><label>Angebotsnummer</label><input id="nr"></div><div><label>Ausführung</label><input id="termin"></div><div><label>MwSt. %</label><input id="docVat" type="number" value="${dataGet('hp_company',{}).vat||19}"></div><div class="full"><label>Vorbemerkung</label><textarea id="vor"></textarea></div></div><h3>Positionen</h3><div id="positions"></div><button class="btn secondary noprint" onclick="addPosition()">+ Position hinzufügen</button><div class="totals"><div class="total"><span>Netto</span><b id="netto">0,00 €</b></div><div class="total"><span>MwSt.</span><b id="mwst">0,00 €</b></div><div class="total big"><span>Brutto</span><span id="brutto">0,00 €</span></div></div><label>Hinweise / Zahlungsziel</label><textarea id="hin">${esc(dataGet('hp_company',{}).payterm||'')}</textarea>`,
+rechnung:()=>`<div class="formgrid"><div><label>Kunde aus Liste</label><select id="customerSelect" onchange="fillCustomer('rechnung')">${customerOptions()}</select></div><div><label>Kunde / Firma</label><input id="rkunde"></div><div><label>Rechnungsnummer</label><input id="rnr"></div><div><label>Leistungsdatum</label><input id="rdat" type="date"></div><div><label>Zahlungsziel</label><input id="rziel" value="${esc(dataGet('hp_company',{}).payterm||'14 Tage netto')}"></div><div><label>MwSt. %</label><input id="rmwst" type="number" value="${dataGet('hp_company',{}).vat||19}"></div><div class="full"><label>Leistung / Positionen</label><textarea id="rleistung"></textarea></div><div><label>Netto €</label><input id="rnetto" type="number" step=".01"></div></div>`,
+bericht:()=>`<div class="formgrid"><div><label>Baustelle</label><input id="bau"></div><div><label>Datum</label><input id="dat" type="date"></div><div><label>Personal</label><input id="pers"></div><div><label>Arbeitszeit</label><input id="zeit"></div><div class="full"><label>Ausgeführte Arbeiten</label><textarea id="arb"></textarea></div><div class="full"><label>Besonderheiten / Behinderungen</label><textarea id="bes"></textarea></div><div class="full"><label>Offene Punkte</label><textarea id="offen"></textarea></div></div>`,
+mail:()=>`<div class="formgrid"><div><label>Kunde aus Liste</label><select id="customerSelect" onchange="fillCustomer('mail')">${customerOptions()}</select></div><div><label>Empfänger</label><input id="emp"></div><div><label>Ton</label><select id="ton"><option>professionell</option><option>freundlich</option><option>kurz und direkt</option><option>bestimmt</option></select></div><div class="full"><label>Anlass</label><textarea id="anlass"></textarea></div><div class="full"><label>Gewünschtes Ergebnis</label><textarea id="ziel"></textarea></div></div>`,
+leistung:()=>`<div class="formgrid"><div><label>Gewerk</label><input id="gew"></div><div><label>Objekt</label><input id="obj"></div><div class="full"><label>Leistungsumfang</label><textarea id="umf"></textarea></div><div><label>Material</label><input id="mat"></div><div><label>Norm / Qualität</label><input id="norm"></div><div class="full"><label>Besondere Anforderungen</label><textarea id="anf"></textarea></div></div>`,
+assistent:()=>`<label>Was soll die KI erledigen?</label><textarea id="frei" placeholder="z. B. Schreibe eine freundliche Mail, dass sich der Montagetermin um zwei Tage verschiebt."></textarea><div class="actions noprint"><button class="btn accent" onclick="startVoice('frei')">🎙️ Spracheingabe</button></div>`};
+function openTool(t){currentTool=t;hideAll();$('workspace').classList.remove('hidden');$('toolTitle').textContent=toolTitles[t];$('toolForm').innerHTML=forms[t]();$('output').style.display='none';$('status').textContent='';if(t==='angebot')renderPositions()}
+function fillCustomer(mode){const idx=Number(v('customerSelect')),c=customersData()[idx];if(!c)return;if(mode==='angebot')$('kunde').value=c.name||'';if(mode==='rechnung')$('rkunde').value=c.name||'';if(mode==='mail')$('emp').value=c.person||c.name||''}
+function renderPositions(){const host=$('positions');if(!host)return;host.innerHTML=positions.map((p,i)=>`<div class="posrow"><div class="wide"><label>Beschreibung</label><input value="${esc(p.desc)}" oninput="setPos(${i},'desc',this.value)"></div><div><label>Menge</label><input type="number" step=".01" value="${p.qty}" oninput="setPos(${i},'qty',this.value)"></div><div><label>Einheit</label><input value="${esc(p.unit)}" oninput="setPos(${i},'unit',this.value)"></div><div><label>Einzelpreis €</label><input type="number" step=".01" value="${p.price}" oninput="setPos(${i},'price',this.value)"></div><button class="btn danger noprint" onclick="removePosition(${i})">×</button></div>`).join('');calcOffer()}
+function setPos(i,k,val){positions[i][k]=(k==='qty'||k==='price')?Number(val):val;renderPositions()} function addPosition(){positions.push({desc:'',qty:1,unit:'Stk.',price:0});renderPositions()} function removePosition(i){positions.splice(i,1);if(!positions.length)positions.push({desc:'',qty:1,unit:'Stk.',price:0});renderPositions()}
+function calcOffer(){const n=positions.reduce((s,p)=>s+(+p.qty||0)*(+p.price||0),0),vat=Number(v('docVat')||dataGet('hp_company',{}).vat||19),m=n*vat/100;if($('netto')){$('netto').textContent=money(n);$('mwst').textContent=money(m);$('brutto').textContent=money(n+m)}}
+function promptText(){if(currentTool==='angebot'){const n=positions.reduce((s,p)=>s+(+p.qty||0)*(+p.price||0),0),vat=Number(v('docVat')||19),plist=positions.map((p,i)=>`${i+1}. ${p.desc} – ${p.qty} ${p.unit} × ${money(p.price)} = ${money((+p.qty||0)*(+p.price||0))}`).join('\n');return `Erstelle ein professionelles Handwerker-Angebot auf Deutsch.
+Absender: ${company()}
+Kunde: ${v('kunde')}
+Baustelle/Ort: ${v('ort')}
+Angebotsnummer: ${v('nr')}
+Ausführung: ${v('termin')}
+Vorbemerkung: ${v('vor')}
+Positionen:
+${plist}
+Netto: ${money(n)}
+MwSt. ${vat}%: ${money(n*vat/100)}
+Brutto: ${money(n*(1+vat/100))}
+Hinweise/Zahlungsziel: ${v('hin')}
+Formuliere seriös, klar und vollständig. Erfinde keine Preise, Mengen oder Leistungen.`}
+if(currentTool==='rechnung'){let n=Number(v('rnetto')||0),m=Number(v('rmwst')||19);return `Erstelle eine professionelle Rechnung auf Deutsch. Absender: ${company()}. Kunde: ${v('rkunde')}. Rechnungsnummer: ${v('rnr')}. Leistungsdatum: ${v('rdat')}. Leistung: ${v('rleistung')}. Netto: ${money(n)}. MwSt.: ${m} %. Brutto: ${money(n*(1+m/100))}. Zahlungsziel: ${v('rziel')}. Erfinde keine Angaben.`}
+if(currentTool==='bericht')return `Erstelle einen professionellen Baustellenbericht auf Deutsch. Firma: ${company()}. Baustelle: ${v('bau')}. Datum: ${v('dat')}. Personal: ${v('pers')}. Arbeitszeit: ${v('zeit')}. Ausgeführte Arbeiten: ${v('arb')}. Besonderheiten/Behinderungen: ${v('bes')}. Offene Punkte: ${v('offen')}. Formuliere sachlich und dokumentationstauglich.`;
+if(currentTool==='mail')return `Schreibe eine ${v('ton')} Kundenmail auf Deutsch. Absender: ${company()}. Empfänger: ${v('emp')}. Anlass: ${v('anlass')}. Gewünschtes Ergebnis: ${v('ziel')}. Natürlich, professionell und ohne unnötige Floskeln.`;
+if(currentTool==='leistung')return `Erstelle eine professionelle technische Leistungsbeschreibung auf Deutsch. Firma: ${company()}. Gewerk: ${v('gew')}. Objekt: ${v('obj')}. Umfang: ${v('umf')}. Material: ${v('mat')}. Norm/Qualität: ${v('norm')}. Besondere Anforderungen: ${v('anf')}. Keine technischen Fakten erfinden.`;
+return `Du bist ein digitaler Büroassistent für einen Handwerksbetrieb. Erledige folgende Aufgabe auf Deutsch professionell und praxisnah: ${v('frei')}`}
+async function generateAI(){const out=$('output'),status=$('status'),prompt=promptText();out.style.display='block';out.textContent='Wird erstellt …';status.textContent='KI-Anfrage läuft';try{const r=await fetch('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({prompt})});const d=await r.json();if(r.ok&&(d.answer||d.text)){out.textContent=d.answer||d.text;status.textContent='Fertig'}else{out.textContent=prompt;status.textContent='KI-Antwort nicht verfügbar – vorbereiteter Text wird angezeigt.'}}catch(e){out.textContent=prompt;status.textContent='KI-Antwort nicht verfügbar – vorbereiteter Text wird angezeigt.'}}
+async function copyOutput(){const t=$('output').textContent;if(!t)return;try{await navigator.clipboard.writeText(t);$('status').textContent='Text kopiert.'}catch{}}
+function currentFields(){const f={};document.querySelectorAll('#toolForm input,#toolForm textarea,#toolForm select').forEach(e=>f[e.id]=e.value);return f}
+function saveDraft(){let a=draftsData();a.unshift({id:Date.now(),type:currentTool,fields:currentFields(),positions:JSON.parse(JSON.stringify(positions)),date:new Date().toLocaleString('de-DE')});dataSet('hp_drafts',a.slice(0,30));$('status').textContent='Entwurf gespeichert.';refreshKPIs()}
+function saveDocument(){const text=$('output').textContent||promptText();let a=docsData();a.unshift({id:Date.now(),type:currentTool,title:toolTitles[currentTool],text,date:new Date().toLocaleString('de-DE')});dataSet('hp_docs',a.slice(0,100));$('status').textContent='Im Archiv gespeichert.';refreshKPIs()}
+function addCustomer(){const c={name:v('cName'),person:v('cPerson'),email:v('cEmail'),phone:v('cPhone'),address:v('cAddress')};if(!c.name)return;let a=customersData();a.unshift(c);dataSet('hp_customers',a);['cName','cPerson','cEmail','cPhone','cAddress'].forEach(id=>$(id).value='');renderCustomers();refreshKPIs()}
+function deleteCustomer(i){let a=customersData();a.splice(i,1);dataSet('hp_customers',a);renderCustomers();refreshKPIs()}
+function renderCustomers(){const a=customersData();$('customerList').innerHTML=a.length?a.map((c,i)=>`<div class="item"><div class="row"><div><strong>${esc(c.name)}</strong><small>${esc(c.person||'')}</small><div class="chips">${c.email?`<span class="chip">${esc(c.email)}</span>`:''}${c.phone?`<span class="chip">${esc(c.phone)}</span>`:''}</div></div><button class="btn danger" onclick="deleteCustomer(${i})">Löschen</button></div></div>`).join(''):'<div class="status">Noch keine Kunden gespeichert.</div>'}
+function renderArchive(){const a=docsData();$('archiveList').innerHTML=a.length?a.map((d,i)=>`<div class="item"><div class="row"><div><strong>${esc(d.title)}</strong><small>${esc(d.date)}</small></div><button class="btn danger" onclick="deleteDoc(${i})">Löschen</button></div><div class="chips"><span class="chip">${esc(d.type)}</span></div><details style="margin-top:8px"><summary>Anzeigen</summary><pre style="white-space:pre-wrap">${esc(d.text)}</pre></details></div>`).join(''):'<div class="status">Noch keine Dokumente gespeichert.</div>'}
+function deleteDoc(i){let a=docsData();a.splice(i,1);dataSet('hp_docs',a);renderArchive();refreshKPIs()}
+function saveCompany(){const c={firma:v('firma'),ansp:v('ansp'),email:v('email'),tel:v('tel'),adresse:v('adresse'),taxid:v('taxid'),iban:v('iban'),vat:v('vat')||19,payterm:v('payterm')||'14 Tage netto'};dataSet('hp_company',c);$('settingsStatus').textContent='Firmendaten gespeichert.'}
+function loadCompanyForm(){const c=dataGet('hp_company',{});['firma','ansp','email','tel','adresse','taxid','iban','vat','payterm'].forEach(id=>{if($(id))$(id).value=c[id]||($(id).value||'')})}
+function refreshKPIs(){$('kpiCustomers').textContent=customersData().length;$('kpiDocs').textContent=docsData().length;$('kpiDrafts').textContent=draftsData().length}
+function exportData(){const blob=new Blob([JSON.stringify({company:dataGet('hp_company',{}),customers:customersData(),docs:docsData(),drafts:draftsData()},null,2)],{type:'application/json'}),a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='handwerkpilot-backup.json';a.click();URL.revokeObjectURL(a.href)}
+function importData(e){const file=e.target.files[0];if(!file)return;const r=new FileReader();r.onload=()=>{try{const d=JSON.parse(r.result);dataSet('hp_company',d.company||{});dataSet('hp_customers',d.customers||[]);dataSet('hp_docs',d.docs||[]);dataSet('hp_drafts',d.drafts||[]);$('settingsStatus').textContent='Daten importiert.';refreshKPIs()}catch{$('settingsStatus').textContent='Import fehlgeschlagen.'}};r.readAsText(file)}
+function startVoice(id){const SR=window.SpeechRecognition||window.webkitSpeechRecognition;if(!SR){$('status').textContent='Spracheingabe wird von diesem Browser nicht unterstützt.';return}const rec=new SR();rec.lang='de-DE';rec.interimResults=false;rec.onresult=e=>{$(id).value+=( $(id).value?' ':'')+e.results[0][0].transcript};rec.start()}
+document.addEventListener('input',e=>{if(e.target.id==='docVat')calcOffer()});refreshKPIs();
+</script>
+</body>
+</html>
