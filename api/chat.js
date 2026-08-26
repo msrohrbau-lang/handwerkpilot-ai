@@ -3,8 +3,14 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: "Nur POST erlaubt" });
   }
 
-  try {
-    const { message } = req.body || {};
+  try {const body = req.body || {};
+const message =
+  body.message ||
+  body.prompt ||
+  body.text ||
+  body.input ||
+  "";
+  
 
     if (!message) {
       return res.status(400).json({
