@@ -1,0 +1,8 @@
+{
+  "name": "handwerkpilot-ai",
+  "version": "1.2.1",
+  "private": true,
+  "dependencies": {
+    "pdfkit": "^0.17.2"
+  }
+}
