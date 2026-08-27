@@ -1,0 +1,37 @@
+<!doctype html><html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><title>HandwerkPilot AI</title><style>html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#f3f5f7}iframe{border:0;width:100%;height:100%;display:block}</style></head><body><iframe id="app" src="/index.html"></iframe><script>
+const frame=document.getElementById('app');
+frame.addEventListener('load',()=>{
+  const w=frame.contentWindow,d=frame.contentDocument;
+  w.createRealPdf=async function(){
+    const status=d.getElementById('status');
+    try{
+      let payload={company:'HandwerkPilot AI',title:'Dokument',filename:'HandwerkPilot.pdf',customer:'',intro:'',positions:[],net:0,vat:19,notes:''};
+      const c=typeof w.companyData==='function'?w.companyData():{};
+      payload.company=c.firma||'HandwerkPilot AI';
+      if(w.currentTool==='angebot'){
+        const net=(w.positions||[]).reduce((s,p)=>s+(Number(p.qty)||0)*(Number(p.price)||0),0);
+        const nr=w.v('nr')||'Angebot';
+        payload={...payload,title:'Angebot',filename:`Angebot-${nr}.pdf`,number:nr,customer:[w.v('kunde'),w.v('kundeAdresse')].filter(Boolean).join('\n'),intro:[w.v('vor'),w.v('ort')?`Baustelle: ${w.v('ort')}`:'',w.v('termin')?`Ausführung: ${w.v('termin')}`:''].filter(Boolean).join('\n'),positions:(w.positions||[]).map(p=>({desc:p.desc,qty:p.qty,unit:p.unit,price:p.price})),net,vat:Number(w.v('docVat')||19),notes:w.v('hin')};
+      } else if(w.currentTool==='rechnung'){
+        const nr=w.v('rnr')||'Rechnung';
+        payload={...payload,title:'Rechnung',filename:`Rechnung-${nr}.pdf`,number:nr,customer:[w.v('rkunde'),w.v('rkundeAdresse')].filter(Boolean).join('\n'),intro:[w.v('rleistung'),w.v('rdat')?`Leistungsdatum: ${w.v('rdat')}`:''].filter(Boolean).join('\n'),net:Number(w.v('rnetto')||0),vat:Number(w.v('rmwst')||19),notes:w.v('rziel')?`Zahlungsziel: ${w.v('rziel')}`:''};
+      } else {
+        payload={...payload,title:w.titles?.[w.currentTool]||'Dokument',filename:'HandwerkPilot-Dokument.pdf',intro:d.getElementById('output')?.innerText||w.promptText?.()||'',showTotals:false};
+      }
+      if(status) status.textContent='PDF wird erstellt …';
+      const r=await fetch('/api/pdf',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+      if(!r.ok){let e={};try{e=await r.json()}catch{}throw new Error(e.error||'PDF konnte nicht erstellt werden.');}
+      const blob=await r.blob();
+      const url=URL.createObjectURL(blob);
+      const a=d.createElement('a');a.href=url;a.target='_blank';a.rel='noopener';a.download=payload.filename;d.body.appendChild(a);a.click();a.remove();
+      setTimeout(()=>URL.revokeObjectURL(url),60000);
+      if(status) status.textContent='✓ PDF erstellt.';
+    }catch(e){if(status) status.textContent='PDF-Fehler: '+e.message;}
+  };
+  const patch=()=>{
+    const btn=[...d.querySelectorAll('button')].find(b=>b.getAttribute('onclick')==='printDocument()');
+    if(btn){btn.textContent='📄 PDF erstellen';btn.setAttribute('onclick','createRealPdf()');}
+  };
+  patch();new MutationObserver(patch).observe(d.body,{childList:true,subtree:true});
+});
+</script></body></html>
