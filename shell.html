@@ -29,8 +29,10 @@ frame.addEventListener('load',()=>{
     }catch(e){if(status) status.textContent='PDF-Fehler: '+e.message;}
   };
   const patch=()=>{
-    const btn=[...d.querySelectorAll('button')].find(b=>b.getAttribute('onclick')==='printDocument()');
-    if(btn){btn.textContent='📄 PDF erstellen';btn.setAttribute('onclick','createRealPdf()');}
+    const pdfBtn=[...d.querySelectorAll('button')].find(b=>b.getAttribute('onclick')==='printDocument()');
+    if(pdfBtn){pdfBtn.textContent='📄 PDF erstellen';pdfBtn.setAttribute('onclick','createRealPdf()');}
+    const draftBtn=[...d.querySelectorAll('button')].find(b=>b.getAttribute('onclick')==='showDrafts()');
+    if(draftBtn){draftBtn.setAttribute('onclick',"parent.location.href='/entwuerfe.html'");}
   };
   patch();new MutationObserver(patch).observe(d.body,{childList:true,subtree:true});
 });
