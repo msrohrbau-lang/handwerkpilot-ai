@@ -1,10 +1,8 @@
 module.exports = async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).send('Method not allowed');
   try {
-    const clean = v => String(v || '').replace(/\s+/g, '');
     const url = 'https://dbaiwcqoigqgknmtctwl.supabase.co';
-    const key = clean(process.env.SUPABASE_ANON_KEY);
-    if (!key) return res.redirect(303, '/register-v2.html?register_error=Cloud-Konfiguration+fehlt');
+    const key = 'sb_publishable_8irMEHCYLPzCmMljWAUCaA_L7xJSZlr';
 
     let body = req.body || {};
     if (typeof body === 'string') body = Object.fromEntries(new URLSearchParams(body));
