@@ -1,10 +1,31 @@
-<!doctype html><html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><title>HandwerkPilot AI</title><style>html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#f3f5f7}iframe{border:0;width:100%;height:100%;display:block}</style></head><body><iframe id="app" src="/index.html"></iframe><script>
-const frame=document.getElementById('app');
-frame.addEventListener('load',()=>{
- const w=frame.contentWindow,d=frame.contentDocument;
- const openDrafts=e=>{if(e){e.preventDefault();e.stopPropagation();e.stopImmediatePropagation&&e.stopImmediatePropagation()} if(typeof w.showDrafts==='function'){w.showDrafts();}else{const dash=d.getElementById('dashboard'),dr=d.getElementById('drafts');if(dash)dash.classList.add('hidden');if(dr)dr.classList.remove('hidden');if(typeof w.renderDrafts==='function')w.renderDrafts();}};
- d.addEventListener('click',e=>{const el=e.target.closest&&e.target.closest('.kpi,button');if(el&&(el.textContent||'').includes('Entwürfe'))openDrafts(e)},true);
- w.createRealPdf=async function(){const status=d.getElementById('status');try{let payload={company:'HandwerkPilot AI',title:'Dokument',filename:'HandwerkPilot.pdf',customer:'',intro:'',positions:[],net:0,vat:19,notes:''};const c=typeof w.companyData==='function'?w.companyData():{};payload.company=c.firma||'HandwerkPilot AI';if(w.currentTool==='angebot'){const net=(w.positions||[]).reduce((s,p)=>s+(Number(p.qty)||0)*(Number(p.price)||0),0),nr=w.v('nr')||'Angebot';payload={...payload,title:'Angebot',filename:`Angebot-${nr}.pdf`,number:nr,customer:[w.v('kunde'),w.v('kundeAdresse')].filter(Boolean).join('\n'),intro:[w.v('vor'),w.v('ort')?`Baustelle: ${w.v('ort')}`:'',w.v('termin')?`Ausführung: ${w.v('termin')}`:''].filter(Boolean).join('\n'),positions:(w.positions||[]).map(p=>({desc:p.desc,qty:p.qty,unit:p.unit,price:p.price})),net,vat:Number(w.v('docVat')||19),notes:w.v('hin')}}else if(w.currentTool==='rechnung'){const nr=w.v('rnr')||'Rechnung';payload={...payload,title:'Rechnung',filename:`Rechnung-${nr}.pdf`,number:nr,customer:[w.v('rkunde'),w.v('rkundeAdresse')].filter(Boolean).join('\n'),intro:[w.v('rleistung'),w.v('rdat')?`Leistungsdatum: ${w.v('rdat')}`:''].filter(Boolean).join('\n'),net:Number(w.v('rnetto')||0),vat:Number(w.v('rmwst')||19),notes:w.v('rziel')?`Zahlungsziel: ${w.v('rziel')}`:''}}else payload={...payload,title:w.titles?.[w.currentTool]||'Dokument',filename:'HandwerkPilot-Dokument.pdf',intro:d.getElementById('output')?.innerText||w.promptText?.()||'',showTotals:false};if(status)status.textContent='PDF wird erstellt …';const r=await fetch('/api/pdf',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});if(!r.ok)throw new Error('PDF konnte nicht erstellt werden.');const blob=await r.blob(),url=URL.createObjectURL(blob),a=d.createElement('a');a.href=url;a.target='_blank';a.download=payload.filename;d.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),60000);if(status)status.textContent='✓ PDF erstellt.'}catch(err){if(status)status.textContent='PDF-Fehler: '+err.message}};
- const patch=()=>{const pdfBtn=[...d.querySelectorAll('button')].find(b=>b.getAttribute('onclick')==='printDocument()');if(pdfBtn){pdfBtn.textContent='📄 PDF erstellen';pdfBtn.setAttribute('onclick','createRealPdf()')}const k=[...d.querySelectorAll('.kpi')].find(x=>(x.textContent||'').includes('Entwürfe'));if(k){k.style.cursor='pointer';k.setAttribute('role','button');k.setAttribute('tabindex','0');k.onclick=openDrafts}};patch();new MutationObserver(patch).observe(d.body,{childList:true,subtree:true});
-});
+<!doctype html><html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><title>HandwerkPilot AI</title><meta name="theme-color" content="#0f172a"></head><body><script>
+(async()=>{
+  try{
+    let html=await (await fetch('/index.html',{cache:'no-store'})).text();
+    html=html.replace('<div class="kpi">Entwürfe<b id="kpiDrafts">0</b></div>','<div class="kpi" onclick="showDrafts()" role="button" tabindex="0" style="cursor:pointer">Entwürfe<b id="kpiDrafts">0</b></div>');
+    html=html.replace('onclick="printDocument()">PDF / Drucken</button>','onclick="createRealPdf()">📄 PDF erstellen</button>');
+    const pdfScript=`<script>
+async function createRealPdf(){
+ const status=document.getElementById('status');
+ try{
+  let payload={company:'HandwerkPilot AI',title:'Dokument',filename:'HandwerkPilot.pdf',customer:'',intro:'',positions:[],net:0,vat:19,notes:''};
+  const c=typeof companyData==='function'?companyData():{};payload.company=c.firma||'HandwerkPilot AI';
+  if(currentTool==='angebot'){
+   const net=(positions||[]).reduce((s,p)=>s+(Number(p.qty)||0)*(Number(p.price)||0),0),nr=v('nr')||'Angebot';
+   payload={...payload,title:'Angebot',filename:'Angebot-'+nr+'.pdf',number:nr,customer:[v('kunde'),v('kundeAdresse')].filter(Boolean).join('\\n'),intro:[v('vor'),v('ort')?'Baustelle: '+v('ort'):'',v('termin')?'Ausführung: '+v('termin'):''].filter(Boolean).join('\\n'),positions:(positions||[]).map(p=>({desc:p.desc,qty:p.qty,unit:p.unit,price:p.price})),net,vat:Number(v('docVat')||19),notes:v('hin')};
+  } else if(currentTool==='rechnung'){
+   const nr=v('rnr')||'Rechnung';
+   payload={...payload,title:'Rechnung',filename:'Rechnung-'+nr+'.pdf',number:nr,customer:[v('rkunde'),v('rkundeAdresse')].filter(Boolean).join('\\n'),intro:[v('rleistung'),v('rdat')?'Leistungsdatum: '+v('rdat'):''].filter(Boolean).join('\\n'),net:Number(v('rnetto')||0),vat:Number(v('rmwst')||19),notes:v('rziel')?'Zahlungsziel: '+v('rziel'):''};
+  } else {payload={...payload,title:titles?.[currentTool]||'Dokument',filename:'HandwerkPilot-Dokument.pdf',intro:document.getElementById('output')?.innerText||promptText?.()||'',showTotals:false};}
+  if(status)status.textContent='PDF wird erstellt …';
+  const r=await fetch('/api/pdf',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+  if(!r.ok)throw new Error('PDF konnte nicht erstellt werden.');
+  const blob=await r.blob(),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.target='_blank';a.download=payload.filename;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),60000);if(status)status.textContent='✓ PDF erstellt.';
+ }catch(err){if(status)status.textContent='PDF-Fehler: '+err.message;}
+}
+<\/script>`;
+    html=html.replace('</body>',pdfScript+'</body>');
+    document.open();document.write(html);document.close();
+  }catch(e){document.body.innerHTML='<p style="font-family:Arial;padding:20px">HandwerkPilot konnte nicht geladen werden. Bitte Seite neu laden.</p>';}
+})();
 </script></body></html>
