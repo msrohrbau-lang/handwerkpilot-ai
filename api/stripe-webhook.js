@@ -1,8 +1,6 @@
 const SUPABASE_URL = 'https://dbaiwcqoigqgknmtctwl.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_8irMEHCYLPzCmMljWAUCaA_L7xJSZlr';
 
-module.exports.config = { api: { bodyParser: false } };
-
 function readRaw(req) {
   return new Promise((resolve, reject) => {
     let data = '';
@@ -13,7 +11,7 @@ function readRaw(req) {
   });
 }
 
-module.exports = async function handler(req, res) {
+async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).send('Method not allowed');
   try {
     const payload = await readRaw(req);
@@ -38,4 +36,7 @@ module.exports = async function handler(req, res) {
     console.error('stripe-webhook', e);
     return res.status(400).json({ error: e.message || 'Webhook error' });
   }
-};
+}
+
+module.exports = handler;
+module.exports.config = { api: { bodyParser: false } };
