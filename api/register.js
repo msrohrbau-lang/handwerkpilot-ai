@@ -2,9 +2,9 @@ module.exports = async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).send('Method not allowed');
   try {
     const clean = v => String(v || '').replace(/\s+/g, '');
-    const url = clean(process.env.SUPABASE_URL);
+    const url = 'https://dbaiwcqoigqgknmtctwl.supabase.co';
     const key = clean(process.env.SUPABASE_ANON_KEY);
-    if (!url || !key) return res.redirect(303, '/?register_error=Cloud-Konfiguration+fehlt');
+    if (!key) return res.redirect(303, '/register-v2.html?register_error=Cloud-Konfiguration+fehlt');
 
     let body = req.body || {};
     if (typeof body === 'string') body = Object.fromEntries(new URLSearchParams(body));
@@ -14,7 +14,7 @@ module.exports = async function handler(req, res) {
     const name = String(body.name || '').trim();
 
     if (!email || !company || !name || password.length < 6) {
-      return res.redirect(303, '/?register_error=Bitte+alle+Felder+ausfüllen');
+      return res.redirect(303, '/register-v2.html?register_error=Bitte+alle+Felder+ausfüllen');
     }
 
     const r = await fetch(url + '/auth/v1/signup', {
@@ -33,11 +33,11 @@ module.exports = async function handler(req, res) {
 
     if (!r.ok) {
       const msg = data.msg || data.message || data.error_description || data.error || 'Registrierung fehlgeschlagen';
-      return res.redirect(303, '/?register_error=' + encodeURIComponent(msg));
+      return res.redirect(303, '/register-v2.html?register_error=' + encodeURIComponent(msg));
     }
 
     return res.redirect(303, '/login?registered=1');
   } catch (e) {
-    return res.redirect(303, '/?register_error=' + encodeURIComponent(e.message || 'Serverfehler'));
+    return res.redirect(303, '/register-v2.html?register_error=' + encodeURIComponent(e.message || 'Serverfehler'));
   }
 };
