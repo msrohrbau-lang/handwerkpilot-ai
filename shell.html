@@ -2,6 +2,13 @@
 const frame=document.getElementById('app');
 frame.addEventListener('load',()=>{
   const w=frame.contentWindow,d=frame.contentDocument;
+  d.addEventListener('click',e=>{
+    const b=e.target.closest&&e.target.closest('button');
+    if(b && (b.textContent||'').includes('Entwürfe')){
+      e.preventDefault();e.stopPropagation();e.stopImmediatePropagation();
+      window.location.assign('/entwuerfe.html');
+    }
+  },true);
   w.createRealPdf=async function(){
     const status=d.getElementById('status');
     try{
@@ -20,19 +27,16 @@ frame.addEventListener('load',()=>{
       }
       if(status) status.textContent='PDF wird erstellt …';
       const r=await fetch('/api/pdf',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
-      if(!r.ok){let e={};try{e=await r.json()}catch{}throw new Error(e.error||'PDF konnte nicht erstellt werden.');}
-      const blob=await r.blob();
-      const url=URL.createObjectURL(blob);
-      const a=d.createElement('a');a.href=url;a.target='_blank';a.rel='noopener';a.download=payload.filename;d.body.appendChild(a);a.click();a.remove();
+      if(!r.ok){let er={};try{er=await r.json()}catch{}throw new Error(er.error||'PDF konnte nicht erstellt werden.');}
+      const blob=await r.blob(),url=URL.createObjectURL(blob),a=d.createElement('a');
+      a.href=url;a.target='_blank';a.rel='noopener';a.download=payload.filename;d.body.appendChild(a);a.click();a.remove();
       setTimeout(()=>URL.revokeObjectURL(url),60000);
       if(status) status.textContent='✓ PDF erstellt.';
-    }catch(e){if(status) status.textContent='PDF-Fehler: '+e.message;}
+    }catch(err){if(status) status.textContent='PDF-Fehler: '+err.message;}
   };
   const patch=()=>{
     const pdfBtn=[...d.querySelectorAll('button')].find(b=>b.getAttribute('onclick')==='printDocument()');
     if(pdfBtn){pdfBtn.textContent='📄 PDF erstellen';pdfBtn.setAttribute('onclick','createRealPdf()');}
-    const draftBtn=[...d.querySelectorAll('button')].find(b=>b.getAttribute('onclick')==='showDrafts()');
-    if(draftBtn){draftBtn.setAttribute('onclick',"parent.location.href='/entwuerfe.html'");}
   };
   patch();new MutationObserver(patch).observe(d.body,{childList:true,subtree:true});
 });
