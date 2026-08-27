@@ -1,25 +1,44 @@
-<!doctype html><html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><title>HandwerkPilot</title><script src="/supabase-lite.js"></script></head><body style="margin:0;background:#f3f5f7"><div id="loading" style="font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Arial,sans-serif;padding:40px;text-align:center;color:#142033;font-weight:700">HandwerkPilot wird geladen …</div><script>(async()=>{try{let html=await (await fetch('/index.html?bootstrap=2',{cache:'no-store'})).text();html=html.replace('<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></'+'script>','');const authPatch=`<script>
+<!doctype html><html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><title>HandwerkPilot</title><script src="/supabase-lite.js"></script></head><body style="margin:0;background:#f3f5f7"><div id="loading" style="font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Arial,sans-serif;padding:40px;text-align:center;color:#142033;font-weight:700">HandwerkPilot wird geladen …</div><script>(async()=>{try{let html=await (await fetch('/index.html?bootstrap=3',{cache:'no-store'})).text();html=html.replace('<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></'+'script>','');const authPatch=`<script>
 window.addEventListener('load',()=>{
+  const params=new URLSearchParams(location.search);
+  const status=document.getElementById('authStatus');
+  if(params.get('registered')==='1'){
+    if(typeof setAuthMode==='function') setAuthMode('login');
+    status.textContent='Registrierung erfolgreich. Bitte E-Mail bestätigen und danach anmelden.';
+    history.replaceState({},'',location.pathname);
+  }else if(params.get('register_error')){
+    if(typeof setAuthMode==='function') setAuthMode('signup');
+    status.textContent=params.get('register_error');
+    history.replaceState({},'',location.pathname);
+  }
   window.submitAuth=async function(){
     const status=document.getElementById('authStatus');
     const btn=document.getElementById('authSubmit');
     const val=id=>(document.getElementById(id)?.value||'').trim();
     const email=val('authEmail'),password=val('authPass');
-    const signup=(window.authMode==='signup');
+    const signup=!document.getElementById('signupFields').classList.contains('hidden');
     const company=val('regCompany'),name=val('regName');
-    if(signup&&(!company||!name||!email||password.length<6)){status.textContent='Bitte alle Felder ausfüllen. Passwort mindestens 6 Zeichen.';return;}
-    if(!signup&&(!email||!password)){status.textContent='Bitte E-Mail und Passwort eingeben.';return;}
+    if(signup){
+      if(!company||!name||!email||password.length<6){status.textContent='Bitte alle Felder ausfüllen. Passwort mindestens 6 Zeichen.';return;}
+      status.textContent='Registrierung wird gestartet …';
+      btn.disabled=true;
+      const form=document.createElement('form');
+      form.method='POST'; form.action='/api/register'; form.style.display='none';
+      const fields={email,password,company,name};
+      for(const [k,v] of Object.entries(fields)){const i=document.createElement('input');i.name=k;i.value=v;form.appendChild(i)}
+      document.body.appendChild(form); form.submit(); return;
+    }
+    if(!email||!password){status.textContent='Bitte E-Mail und Passwort eingeben.';return;}
     status.textContent='Bitte warten …'; btn.disabled=true;
     try{
-      const r=await fetch('/api/auth',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:signup?'signup':'login',email,password,company,name})});
+      const r=await fetch('/api/auth',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'login',email,password})});
       const d=await r.json(); if(!r.ok) throw new Error(d.error||'Anmeldung fehlgeschlagen.');
-      if(signup){status.textContent='Registrierung erfolgreich. Du kannst dich jetzt anmelden.'; if(typeof setAuthMode==='function')setAuthMode('login'); return;}
       if(!d.access_token) throw new Error('Anmeldung konnte nicht abgeschlossen werden.');
       const cfg=await (await fetch('/api/config',{cache:'no-store'})).json();
       const ref=(cfg.supabaseUrl.match(/^https:\/\/([^.]+)\.supabase\.co/)||[])[1]||'handwerkpilot';
       const session={access_token:d.access_token,refresh_token:d.refresh_token,expires_in:d.expires_in,expires_at:d.expires_at||Math.floor(Date.now()/1000)+(d.expires_in||3600),token_type:d.token_type||'bearer',user:d.user};
       localStorage.setItem('sb-'+ref+'-auth-token',JSON.stringify(session)); location.reload();
-    }catch(e){status.textContent=e.message;}finally{btn.disabled=false;}
+    }catch(e){status.textContent=e.message;btn.disabled=false;}
   };
 });
 </`+`script>`;html=html.replace('</body>',authPatch+'</body>');document.open();document.write(html);document.close()}catch(e){document.getElementById('loading').textContent='Laden fehlgeschlagen: '+e.message}})();</script></body></html>
