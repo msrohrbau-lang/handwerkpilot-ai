@@ -1,10 +1,8 @@
 module.exports = async function handler(req,res){
   if(req.method!=='POST') return res.status(405).json({error:'Method not allowed'});
   try{
-    const clean=v=>String(v||'').replace(/\s+/g,'');
     const url='https://dbaiwcqoigqgknmtctwl.supabase.co';
-    const key=clean(process.env.SUPABASE_ANON_KEY);
-    if(!key) return res.status(500).json({error:'Cloud-Konfiguration fehlt.'});
+    const key='sb_publishable_8irMEHCYLPzCmMljWAUCaA_L7xJSZlr';
     const {action,email,password,company,name}=req.body||{};
     if(!email||!password) return res.status(400).json({error:'E-Mail und Passwort fehlen.'});
     let endpoint,body;
