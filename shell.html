@@ -2,6 +2,8 @@
 (async()=>{
   try{
     let html=await (await fetch('/index.html',{cache:'no-store'})).text();
+    html=html.replace('<div class="kpi">Kunden<b id="kpiCustomers">0</b></div>','<div class="kpi" onclick="showCustomers()" role="button" tabindex="0" style="cursor:pointer">Kunden<b id="kpiCustomers">0</b></div>');
+    html=html.replace('<div class="kpi">Dokumente<b id="kpiDocs">0</b></div>','<div class="kpi" onclick="showArchive()" role="button" tabindex="0" style="cursor:pointer">Dokumente<b id="kpiDocs">0</b></div>');
     html=html.replace('<div class="kpi">Entwürfe<b id="kpiDrafts">0</b></div>','<div class="kpi" onclick="showDrafts()" role="button" tabindex="0" style="cursor:pointer">Entwürfe<b id="kpiDrafts">0</b></div>');
     html=html.replace('onclick="printDocument()">PDF / Drucken</button>','onclick="createRealPdf()">📄 PDF erstellen</button>');
     const pdfScript=`<script>
