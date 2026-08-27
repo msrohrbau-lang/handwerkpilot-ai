@@ -1,1 +1,105 @@
-<!doctype html><html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><title>HandwerkPilot registrieren</title><style>body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;background:#eef2f6;color:#142033;padding:18px}.box{max-width:520px;margin:20px auto;background:#fff;border-radius:26px;padding:24px;box-shadow:0 12px 30px rgba(15,23,42,.08)}.brand{display:flex;align-items:center;gap:12px;font-weight:900;font-size:28px;margin-bottom:12px}.mark{width:56px;height:56px;border-radius:16px;background:#0f172a;color:white;display:grid;place-items:center;font-weight:950}.sub{color:#667085;margin:0 0 22px}label{display:block;font-weight:800;margin:14px 0 7px}input{width:100%;box-sizing:border-box;border:1px solid #dbe2ea;border-radius:14px;padding:14px;font-size:17px;background:#fff}.btn{width:100%;border:0;border-radius:16px;background:#0f172a;color:white;font-weight:900;font-size:18px;padding:16px;margin-top:20px}.hint{color:#667085;line-height:1.45;font-size:14px;margin-top:16px}.back{display:block;text-align:center;margin-top:16px;color:#2563eb;text-decoration:none;font-weight:700}</style></head><body><div class="box"><div class="brand"><div class="mark">HP</div><div>HandwerkPilot</div></div><h1>Betrieb registrieren</h1><p class="sub">14 Tage kostenlos testen. Danach 29,90 € pro Monat.</p><form method="POST" action="/api/register" enctype="application/x-www-form-urlencoded"><label>Firmenname</label><input name="company" required autocomplete="organization"><label>Vor- und Nachname</label><input name="name" required autocomplete="name"><label>E-Mail</label><input name="email" type="email" required autocomplete="email"><label>Passwort</label><input name="password" type="password" minlength="6" required autocomplete="new-password"><button class="btn" type="submit">14 Tage kostenlos starten</button></form><p class="hint">Die Registrierung wird direkt an den HandwerkPilot-Server gesendet. Diese Seite verwendet dafür keinen JavaScript-Netzwerkaufruf.</p><a class="back" href="/">Zurück zur Anmeldung</a></div></body></html>
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>HandwerkPilot</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;background:#eef2f6;color:#142033;padding:18px}.box{max-width:520px;margin:20px auto;background:#fff;border-radius:26px;padding:24px;box-shadow:0 12px 30px rgba(15,23,42,.08)}.brand{display:flex;align-items:center;gap:12px;font-weight:900;font-size:28px;margin-bottom:12px}.mark{width:56px;height:56px;border-radius:16px;background:#0f172a;color:white;display:grid;place-items:center;font-weight:950}.sub{color:#667085;margin:0 0 22px;line-height:1.45}label{display:block;font-weight:800;margin:14px 0 7px}input{width:100%;box-sizing:border-box;border:1px solid #dbe2ea;border-radius:14px;padding:14px;font-size:17px;background:#fff}.btn{width:100%;border:0;border-radius:16px;background:#0f172a;color:white;font-weight:900;font-size:18px;padding:16px;margin-top:20px}.hint{color:#667085;line-height:1.45;font-size:14px;margin-top:16px}.back{display:block;text-align:center;margin-top:16px;color:#2563eb;text-decoration:none;font-weight:700}.hidden{display:none!important}.status{margin-top:14px;font-weight:700;line-height:1.4}.ok{color:#087f5b}.err{color:#b42318}
+</style>
+</head>
+<body>
+<div class="box">
+  <div class="brand"><div class="mark">HP</div><div>HandwerkPilot</div></div>
+
+  <section id="registerView">
+    <h1>Betrieb registrieren</h1>
+    <p class="sub">14 Tage kostenlos testen. Danach 29,90 € pro Monat.</p>
+    <form method="POST" action="/api/register" enctype="application/x-www-form-urlencoded">
+      <label>Firmenname</label><input name="company" required autocomplete="organization">
+      <label>Vor- und Nachname</label><input name="name" required autocomplete="name">
+      <label>E-Mail</label><input name="email" type="email" required autocomplete="email">
+      <label>Passwort</label><input name="password" type="password" minlength="6" required autocomplete="new-password">
+      <button class="btn" type="submit">14 Tage kostenlos starten</button>
+    </form>
+    <p class="hint">Die Registrierung wird direkt an den HandwerkPilot-Server gesendet.</p>
+    <a class="back" href="/login">Zur Anmeldung</a>
+  </section>
+
+  <section id="resetView" class="hidden">
+    <h1>Neues Passwort setzen</h1>
+    <p class="sub">Gib jetzt dein neues HandwerkPilot-Passwort ein.</p>
+    <label>Neues Passwort</label>
+    <input id="newPassword" type="password" minlength="6" autocomplete="new-password">
+    <label>Passwort wiederholen</label>
+    <input id="newPassword2" type="password" minlength="6" autocomplete="new-password">
+    <button id="savePassword" class="btn" type="button">Neues Passwort speichern</button>
+    <div id="resetStatus" class="status"></div>
+  </section>
+</div>
+<script>
+(function(){
+  const hash = new URLSearchParams(location.hash.replace(/^#/,''));
+  const query = new URLSearchParams(location.search);
+  const isRecovery = hash.get('type') === 'recovery' || query.get('type') === 'recovery' || !!hash.get('access_token');
+  if(!isRecovery) return;
+
+  document.getElementById('registerView').classList.add('hidden');
+  document.getElementById('resetView').classList.remove('hidden');
+
+  const status = document.getElementById('resetStatus');
+  const button = document.getElementById('savePassword');
+  let client = null;
+
+  async function prepare(){
+    try{
+      const cfgRes = await fetch('/api/config',{cache:'no-store'});
+      const cfg = await cfgRes.json();
+      if(!cfg.supabaseUrl || !cfg.supabaseAnonKey) throw new Error('Cloud-Konfiguration fehlt.');
+      client = supabase.createClient(cfg.supabaseUrl,cfg.supabaseAnonKey,{auth:{detectSessionInUrl:true,persistSession:true}});
+
+      const access_token = hash.get('access_token');
+      const refresh_token = hash.get('refresh_token');
+      if(access_token && refresh_token){
+        const {error} = await client.auth.setSession({access_token,refresh_token});
+        if(error) throw error;
+      }
+
+      const {data} = await client.auth.getSession();
+      if(!data.session){
+        status.className='status err';
+        status.textContent='Der Reset-Link ist abgelaufen oder ungültig. Bitte eine neue Passwort-Mail anfordern.';
+        button.disabled=true;
+      } else {
+        status.className='status';
+        status.textContent='Reset-Link erkannt. Du kannst jetzt ein neues Passwort setzen.';
+      }
+    }catch(e){
+      status.className='status err';
+      status.textContent='Reset konnte nicht vorbereitet werden: '+(e.message||e);
+      button.disabled=true;
+    }
+  }
+
+  button.addEventListener('click',async()=>{
+    const p1=document.getElementById('newPassword').value;
+    const p2=document.getElementById('newPassword2').value;
+    if(p1.length<6){status.className='status err';status.textContent='Das Passwort muss mindestens 6 Zeichen haben.';return;}
+    if(p1!==p2){status.className='status err';status.textContent='Die beiden Passwörter stimmen nicht überein.';return;}
+    if(!client){status.className='status err';status.textContent='Verbindung noch nicht bereit.';return;}
+    button.disabled=true; status.className='status'; status.textContent='Passwort wird gespeichert …';
+    const {error}=await client.auth.updateUser({password:p1});
+    if(error){button.disabled=false;status.className='status err';status.textContent='Passwort konnte nicht gespeichert werden: '+error.message;return;}
+    await client.auth.signOut();
+    status.className='status ok';
+    status.textContent='Passwort gespeichert. Du wirst zur Anmeldung weitergeleitet …';
+    history.replaceState({},'',location.pathname);
+    setTimeout(()=>location.href='/login?reset=success',1200);
+  });
+
+  prepare();
+})();
+</script>
+</body>
+</html>
