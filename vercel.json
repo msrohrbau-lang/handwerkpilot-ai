@@ -1,6 +1,6 @@
 {
   "redirects": [
-    { "source": "/", "destination": "/register-v2.html", "permanent": false }
+    { "source": "/", "destination": "/start.html", "permanent": false }
   ],
   "rewrites": [
     { "source": "/login", "destination": "/bootstrap.html" }
