@@ -34,7 +34,7 @@ module.exports = async function handler(req, res) {
       return res.redirect(303, '/register-v2.html?register_error=' + encodeURIComponent(msg));
     }
 
-    return res.redirect(303, '/login?registered=1');
+    return res.redirect(303, '/register-success.html');
   } catch (e) {
     return res.redirect(303, '/register-v2.html?register_error=' + encodeURIComponent(e.message || 'Serverfehler'));
   }
