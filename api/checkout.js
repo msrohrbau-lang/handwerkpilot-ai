@@ -2,13 +2,14 @@ export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
   try {
-    const stripeSecret = process.env.STRIPE_SECRET_KEY;
-    const price = process.env.STRIPE_PRICE_ID;
-    const supabaseUrl = process.env.SUPABASE_URL;
-    const supabaseAnonKey = process.env.SUPABASE_ANON_KEY;
-    if (!stripeSecret || !price || !supabaseUrl || !supabaseAnonKey) {
-      return res.status(500).json({ error: 'Checkout ist noch nicht vollständig konfiguriert.' });
-    }
+    const stripeSecret = String(process.env.STRIPE_SECRET_KEY || '').trim();
+    const price = String(process.env.STRIPE_PRICE_ID || '').trim();
+    const supabaseUrl = String(process.env.SUPABASE_URL || 'https://dbaiwcqoigqgknmtctwl.supabase.co').trim();
+    const supabaseAnonKey = String(process.env.SUPABASE_ANON_KEY || 'sb_publishable_8irMEHCYLPzCmMljWAUCaA_L7xJSZlr').trim();
+
+    if (!stripeSecret) return res.status(500).json({ error: 'STRIPE_SECRET_KEY fehlt in Vercel.' });
+    if (!price) return res.status(500).json({ error: 'STRIPE_PRICE_ID fehlt in Vercel.' });
+    if (!price.startsWith('price_')) return res.status(500).json({ error: 'STRIPE_PRICE_ID ist ungültig. Sie muss mit price_ beginnen.' });
 
     const auth = String(req.headers.authorization || '');
     if (!auth.startsWith('Bearer ')) return res.status(401).json({ error: 'Bitte erneut anmelden.' });
@@ -54,10 +55,14 @@ export default async function handler(req, res) {
     });
 
     const data = await r.json();
-    if (!r.ok) return res.status(r.status).json({ error: data?.error?.message || 'Stripe Checkout konnte nicht gestartet werden.' });
+    if (!r.ok) {
+      console.error('Stripe checkout error', { status: r.status, type: data?.error?.type, code: data?.error?.code, message: data?.error?.message });
+      return res.status(r.status).json({ error: data?.error?.message || 'Stripe Checkout konnte nicht gestartet werden.' });
+    }
+    if (!data?.url) return res.status(500).json({ error: 'Stripe hat keine Checkout-Adresse geliefert.' });
     return res.status(200).json({ url: data.url });
   } catch (e) {
     console.error('checkout', e);
-    return res.status(500).json({ error: e.message || 'Checkout-Fehler' });
+    return res.status(500).json({ error: e?.message || 'Checkout-Fehler' });
   }
 }
