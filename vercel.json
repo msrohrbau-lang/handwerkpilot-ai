@@ -3,6 +3,6 @@
     { "source": "/", "destination": "/start.html", "permanent": false }
   ],
   "rewrites": [
-    { "source": "/login", "destination": "/bootstrap.html" }
+    { "source": "/login", "destination": "/index.html" }
   ]
 }
