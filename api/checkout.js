@@ -1,15 +1,13 @@
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
+  const fallbackUrl = 'https://buy.stripe.com/cNicN7fERfLZ92M19QcbC01';
+
   try {
     const stripeSecret = String(process.env.STRIPE_SECRET_KEY || '').trim();
     const price = String(process.env.STRIPE_PRICE_ID || '').trim();
     const supabaseUrl = String(process.env.SUPABASE_URL || 'https://dbaiwcqoigqgknmtctwl.supabase.co').trim();
     const supabaseAnonKey = String(process.env.SUPABASE_ANON_KEY || 'sb_publishable_8irMEHCYLPzCmMljWAUCaA_L7xJSZlr').trim();
-
-    if (!stripeSecret) return res.status(500).json({ error: 'STRIPE_SECRET_KEY fehlt in Vercel.' });
-    if (!price) return res.status(500).json({ error: 'STRIPE_PRICE_ID fehlt in Vercel.' });
-    if (!price.startsWith('price_')) return res.status(500).json({ error: 'STRIPE_PRICE_ID ist ungültig. Sie muss mit price_ beginnen.' });
 
     const auth = String(req.headers.authorization || '');
     if (!auth.startsWith('Bearer ')) return res.status(401).json({ error: 'Bitte erneut anmelden.' });
@@ -21,12 +19,19 @@ export default async function handler(req, res) {
     const user = await userResp.json();
     if (!userResp.ok || !user?.id || !user?.email) return res.status(401).json({ error: 'Anmeldung ist abgelaufen. Bitte erneut anmelden.' });
 
-    const profileResp = await fetch(`${supabaseUrl}/rest/v1/profiles?user_id=eq.${encodeURIComponent(user.id)}&select=organization_id&limit=1`, {
-      headers: { apikey: supabaseAnonKey, Authorization: `Bearer ${accessToken}` }
-    });
-    const profiles = await profileResp.json();
-    const organizationId = Array.isArray(profiles) ? profiles[0]?.organization_id : null;
-    if (!profileResp.ok || !organizationId) return res.status(400).json({ error: 'Firmenkonto konnte nicht ermittelt werden.' });
+    // If the API credentials are not usable, keep sales working via the verified Stripe Payment Link.
+    if (!stripeSecret.startsWith('sk_') || !price.startsWith('price_')) {
+      return res.status(200).json({ url: fallbackUrl, fallback: true });
+    }
+
+    let organizationId = '';
+    try {
+      const profileResp = await fetch(`${supabaseUrl}/rest/v1/profiles?user_id=eq.${encodeURIComponent(user.id)}&select=organization_id&limit=1`, {
+        headers: { apikey: supabaseAnonKey, Authorization: `Bearer ${accessToken}` }
+      });
+      const profiles = await profileResp.json();
+      organizationId = Array.isArray(profiles) ? String(profiles[0]?.organization_id || '') : '';
+    } catch (_) {}
 
     const origin = 'https://handwerkpilot-ai.vercel.app';
     const params = new URLSearchParams();
@@ -38,31 +43,30 @@ export default async function handler(req, res) {
     params.set('allow_promotion_codes', 'true');
     params.set('billing_address_collection', 'auto');
     params.set('customer_email', user.email);
-    params.set('client_reference_id', organizationId);
-    params.set('metadata[organization_id]', organizationId);
-    params.set('metadata[user_id]', user.id);
-    params.set('subscription_data[metadata][organization_id]', organizationId);
-    params.set('subscription_data[metadata][user_id]', user.id);
     params.set('subscription_data[trial_period_days]', '14');
+    if (organizationId) {
+      params.set('client_reference_id', organizationId);
+      params.set('metadata[organization_id]', organizationId);
+      params.set('metadata[user_id]', user.id);
+      params.set('subscription_data[metadata][organization_id]', organizationId);
+      params.set('subscription_data[metadata][user_id]', user.id);
+    }
 
     const r = await fetch('https://api.stripe.com/v1/checkout/sessions', {
       method: 'POST',
-      headers: {
-        Authorization: `Bearer ${stripeSecret}`,
-        'Content-Type': 'application/x-www-form-urlencoded'
-      },
+      headers: { Authorization: `Bearer ${stripeSecret}`, 'Content-Type': 'application/x-www-form-urlencoded' },
       body: params.toString()
     });
+    const data = await r.json().catch(() => ({}));
 
-    const data = await r.json();
-    if (!r.ok) {
+    if (!r.ok || !data?.url) {
       console.error('Stripe checkout error', { status: r.status, type: data?.error?.type, code: data?.error?.code, message: data?.error?.message });
-      return res.status(r.status).json({ error: data?.error?.message || 'Stripe Checkout konnte nicht gestartet werden.' });
+      return res.status(200).json({ url: fallbackUrl, fallback: true });
     }
-    if (!data?.url) return res.status(500).json({ error: 'Stripe hat keine Checkout-Adresse geliefert.' });
+
     return res.status(200).json({ url: data.url });
   } catch (e) {
     console.error('checkout', e);
-    return res.status(500).json({ error: e?.message || 'Checkout-Fehler' });
+    return res.status(200).json({ url: fallbackUrl, fallback: true });
   }
 }
