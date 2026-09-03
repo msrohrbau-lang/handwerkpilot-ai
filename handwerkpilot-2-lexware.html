@@ -1,7 +1,7 @@
 <!doctype html><html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><title>HandwerkPilot 2.0 Lexware</title></head><body style="margin:0;background:#f4f6f8"><div id="loading" style="font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Arial,sans-serif;padding:40px;text-align:center;font-weight:800;color:#142033">HandwerkPilot 2.0 wird geladen …</div><script>
 (async()=>{
   try{
-    let html=await (await fetch('/handwerkpilot-2.html?lexware=2',{cache:'no-store'})).text();
+    let html=await (await fetch('/handwerkpilot-2.html?lexware=3',{cache:'no-store'})).text();
     html=html.replace("$('wisoOwnership').value=localStorage.getItem('hp_wiso_ownership')||''","if($('wisoOwnership'))$('wisoOwnership').value=localStorage.getItem('hp_wiso_ownership')||''");
     const patch=`<script>
 window.addEventListener('load',()=>{
@@ -21,11 +21,34 @@ window.addEventListener('load',()=>{
     s.textContent='API-Key für diese Sitzung gespeichert. Jetzt Verbindung testen.';
   };
 
+  window.ensureHpSession=async function(){
+    try{
+      let current=(await sb.auth.getSession()).data.session;
+      if(current?.access_token){session=current;return current}
+      const refreshed=await sb.auth.refreshSession();
+      if(refreshed?.data?.session?.access_token){session=refreshed.data.session;return session}
+    }catch(e){}
+    sessionStorage.setItem('hp_return_view','wiso');
+    const authBox=document.getElementById('auth');
+    if(authBox)authBox.classList.remove('hidden');
+    const status=document.getElementById('authStatus');
+    if(status)status.textContent='Deine Sitzung ist abgelaufen. Bitte einmal neu anmelden – danach kommst du direkt zurück zur Buchhaltung.';
+    throw new Error('Bitte HandwerkPilot erneut anmelden.');
+  };
+
   window.lexwareCall=async function(action,payload={}){
     const key=(document.getElementById('lexwareKey')?.value||sessionStorage.getItem('hp_lexware_key')||'').trim();
     if(!key)throw new Error('Bitte zuerst Lexware verbinden.');
-    const r=await fetch('/api/lexware',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+session.access_token},body:JSON.stringify({action,lexwareKey:key,...payload})});
+    const active=await ensureHpSession();
+    let r=await fetch('/api/lexware',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+active.access_token},body:JSON.stringify({action,lexwareKey:key,...payload})});
+    if(r.status===401){
+      try{
+        const refreshed=await sb.auth.refreshSession();
+        if(refreshed?.data?.session?.access_token){session=refreshed.data.session;r=await fetch('/api/lexware',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+session.access_token},body:JSON.stringify({action,lexwareKey:key,...payload})})}
+      }catch(e){}
+    }
     const d=await r.json();
+    if(r.status===401){sessionStorage.setItem('hp_return_view','wiso');const authBox=document.getElementById('auth');if(authBox)authBox.classList.remove('hidden');const status=document.getElementById('authStatus');if(status)status.textContent='Bitte einmal neu anmelden – danach kommst du direkt zurück zur Buchhaltung.';throw new Error('HandwerkPilot-Anmeldung ist abgelaufen.')}
     if(!r.ok)throw new Error(d.error||'Lexware-Fehler');
     return d;
   };
@@ -74,6 +97,9 @@ window.addEventListener('load',()=>{
 
   const oldShowView=showView;
   window.showView=function(id){oldShowView(id);if(id==='wiso'){const k=sessionStorage.getItem('hp_lexware_key')||'';const input=document.getElementById('lexwareKey');if(input&&!input.value)input.value=k}}
+
+  const oldEnter=enter;
+  window.enter=async function(){await oldEnter();const back=sessionStorage.getItem('hp_return_view');if(back){sessionStorage.removeItem('hp_return_view');setTimeout(()=>showView(back),50)}};
 });
 </`+`script>`;
     html=html.replace('</body>',patch+'</body>');
