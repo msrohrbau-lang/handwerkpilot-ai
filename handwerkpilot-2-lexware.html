@@ -1,7 +1,8 @@
 <!doctype html><html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><title>HandwerkPilot 2.0 Lexware</title></head><body style="margin:0;background:#f4f6f8"><div id="loading" style="font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Arial,sans-serif;padding:40px;text-align:center;font-weight:800;color:#142033">HandwerkPilot 2.0 wird geladen …</div><script>
 (async()=>{
   try{
-    let html=await (await fetch('/handwerkpilot-2.html?lexware=1',{cache:'no-store'})).text();
+    let html=await (await fetch('/handwerkpilot-2.html?lexware=2',{cache:'no-store'})).text();
+    html=html.replace("$('wisoOwnership').value=localStorage.getItem('hp_wiso_ownership')||''","if($('wisoOwnership'))$('wisoOwnership').value=localStorage.getItem('hp_wiso_ownership')||''");
     const patch=`<script>
 window.addEventListener('load',()=>{
   const book=document.getElementById('wiso');
