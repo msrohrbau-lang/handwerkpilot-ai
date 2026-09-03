@@ -5,25 +5,9 @@ export default async function handler(req, res) {
   }
 
   try {
-    const auth = String(req.headers.authorization || '');
-    if (!auth.startsWith('Bearer ')) return res.status(401).json({ error: 'Bitte erneut anmelden.' });
-
-    const supabaseUrl = String(process.env.SUPABASE_URL || 'https://dbaiwcqoigqgknmtctwl.supabase.co').trim();
-    const supabaseAnonKey = String(
-      process.env.SUPABASE_ANON_KEY ||
-      process.env.SUPABASE_PUBLISHABLE_KEY ||
-      'sb_publishable_8irMEHCYLPzCmMljWAUCaA_L7xJSZlr'
-    ).trim();
-
-    const userResp = await fetch(`${supabaseUrl}/auth/v1/user`, {
-      headers: { apikey: supabaseAnonKey, Authorization: auth }
-    });
-    const user = await userResp.json().catch(() => ({}));
-    if (!userResp.ok || !user?.id) {
-      console.error('Lexware auth verification failed', userResp.status, user?.message || user?.error || '');
-      return res.status(401).json({ error: 'HandwerkPilot-Anmeldung ist abgelaufen.' });
-    }
-
+    // Preview/Testversion: Die App selbst kümmert sich um den HandwerkPilot-Login.
+    // Die Lexware-Brücke prüft hier nur den für die Sitzung mitgegebenen Lexware-Key,
+    // damit keine zweite, fehleranfällige Login-Prüfung eine Schleife erzeugt.
     const body = req.body || {};
     const action = String(body.action || '').trim();
     const lexwareKey = String(body.lexwareKey || '').trim();
