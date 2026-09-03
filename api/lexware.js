@@ -9,12 +9,20 @@ export default async function handler(req, res) {
     if (!auth.startsWith('Bearer ')) return res.status(401).json({ error: 'Bitte erneut anmelden.' });
 
     const supabaseUrl = String(process.env.SUPABASE_URL || 'https://dbaiwcqoigqgknmtctwl.supabase.co').trim();
-    const supabaseAnonKey = String(process.env.SUPABASE_ANON_KEY || '').trim();
+    const supabaseAnonKey = String(
+      process.env.SUPABASE_ANON_KEY ||
+      process.env.SUPABASE_PUBLISHABLE_KEY ||
+      'sb_publishable_8irMEHCYLPzCmMljWAUCaA_L7xJSZlr'
+    ).trim();
+
     const userResp = await fetch(`${supabaseUrl}/auth/v1/user`, {
       headers: { apikey: supabaseAnonKey, Authorization: auth }
     });
     const user = await userResp.json().catch(() => ({}));
-    if (!userResp.ok || !user?.id) return res.status(401).json({ error: 'Anmeldung ist abgelaufen.' });
+    if (!userResp.ok || !user?.id) {
+      console.error('Lexware auth verification failed', userResp.status, user?.message || user?.error || '');
+      return res.status(401).json({ error: 'HandwerkPilot-Anmeldung ist abgelaufen.' });
+    }
 
     const body = req.body || {};
     const action = String(body.action || '').trim();
