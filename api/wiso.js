@@ -1,10 +1,11 @@
 const API_BASE = 'https://api.meinbuero.de';
+const SUPABASE_URL_FALLBACK = 'https://dbaiwcqoigqgknmtctwl.supabase.co';
+const SUPABASE_PUBLISHABLE_FALLBACK = 'sb_publishable_8irMEHCYLPzCmMljWAUCaA_L7xJSZlr';
 
 async function verifyHandwerkPilotUser(req) {
-  const supabaseUrl = String(process.env.SUPABASE_URL || '').trim();
-  const supabaseAnonKey = String(process.env.SUPABASE_ANON_KEY || '').trim();
+  const supabaseUrl = String(process.env.SUPABASE_URL || SUPABASE_URL_FALLBACK).trim();
+  const supabaseAnonKey = String(process.env.SUPABASE_ANON_KEY || process.env.SUPABASE_PUBLISHABLE_KEY || SUPABASE_PUBLISHABLE_FALLBACK).trim();
   const auth = String(req.headers.authorization || '');
-  if (!supabaseUrl || !supabaseAnonKey) throw new Error('SUPABASE_CONFIG');
   if (!auth.startsWith('Bearer ')) throw new Error('UNAUTHORIZED');
   const r = await fetch(`${supabaseUrl}/auth/v1/user`, {
     headers: { apikey: supabaseAnonKey, Authorization: auth }
@@ -110,8 +111,7 @@ export default async function handler(req, res) {
   } catch (e) {
     const m = String(e?.message || e);
     if (m === 'UNAUTHORIZED') return res.status(401).json({ error: 'Bitte erneut bei HandwerkPilot anmelden.' });
-    if (m === 'SUPABASE_CONFIG') return res.status(500).json({ error: 'Supabase-Konfiguration fehlt.' });
-    if (m === 'WISO_NOT_CONFIGURED') return res.status(503).json({ error: 'WISO ist serverseitig noch nicht freigeschaltet. Es fehlen WISO_API_KEY und WISO_API_SECRET.' });
+    if (m === 'WISO_NOT_CONFIGURED') return res.status(503).json({ error: 'WISO-Zugang ist fast fertig. Bitte WISO_API_KEY und WISO_API_SECRET einmalig sicher in Vercel hinterlegen.' });
     if (m === 'OWNERSHIP_ID_MISSING') return res.status(400).json({ error: 'Bitte zuerst die WISO Ownership-ID eintragen.' });
     console.error('HandwerkPilot WISO', e);
     return res.status(502).json({ error: m || 'WISO-Verbindung fehlgeschlagen.' });
