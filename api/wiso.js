@@ -1,6 +1,6 @@
 import crypto from 'node:crypto';
 
-const API_BASE = 'https://api.meinbuero.de';
+const API_BASE = 'https://api.meinbuero.de/openapi';
 const SUPABASE_URL_FALLBACK = 'https://dbaiwcqoigqgknmtctwl.supabase.co';
 const SUPABASE_PROJECT_HOST = 'dbaiwcqoigqgknmtctwl.supabase.co';
 
