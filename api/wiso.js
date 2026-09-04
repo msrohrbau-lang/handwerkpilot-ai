@@ -1,12 +1,20 @@
 const API_BASE = 'https://api.meinbuero.de';
 const SUPABASE_URL_FALLBACK = 'https://dbaiwcqoigqgknmtctwl.supabase.co';
+const SUPABASE_PROJECT_HOST = 'dbaiwcqoigqgknmtctwl.supabase.co';
 const SUPABASE_PUBLISHABLE_FALLBACK = 'sb_publishable_8irMEHCYLPzCmMljWAUCaA_L7xJSZlr';
 
 function cleanUrl(value, fallback = '') {
   const raw = String(value || fallback || '').trim().replace(/\s+/g, '');
   if (!raw) return '';
-  if (/^https?:\/\//i.test(raw)) return raw.replace(/\/$/, '');
-  return `https://${raw.replace(/^\/+/, '')}`.replace(/\/$/, '');
+  let url = /^https?:\/\//i.test(raw) ? raw : `https://${raw.replace(/^\/+/, '')}`;
+  url = url.replace(/\/$/, '');
+  try {
+    const parsed = new URL(url);
+    if (parsed.hostname !== SUPABASE_PROJECT_HOST) return SUPABASE_URL_FALLBACK;
+    return `${parsed.protocol}//${parsed.hostname}`;
+  } catch {
+    return SUPABASE_URL_FALLBACK;
+  }
 }
 
 async function verifyHandwerkPilotUser(req) {
@@ -14,7 +22,6 @@ async function verifyHandwerkPilotUser(req) {
   const supabaseAnonKey = String(process.env.SUPABASE_ANON_KEY || process.env.SUPABASE_PUBLISHABLE_KEY || SUPABASE_PUBLISHABLE_FALLBACK).trim().replace(/\s+/g, '');
   const auth = String(req.headers.authorization || '');
   if (!auth.startsWith('Bearer ')) throw new Error('UNAUTHORIZED');
-  if (!supabaseUrl) throw new Error('SUPABASE_URL_INVALID');
   const r = await fetch(`${supabaseUrl}/auth/v1/user`, {
     headers: { apikey: supabaseAnonKey, Authorization: auth }
   });
@@ -119,7 +126,6 @@ export default async function handler(req, res) {
   } catch (e) {
     const m = String(e?.message || e);
     if (m === 'UNAUTHORIZED') return res.status(401).json({ error: 'Bitte erneut bei HandwerkPilot anmelden.' });
-    if (m === 'SUPABASE_URL_INVALID') return res.status(500).json({ error: 'Supabase-URL ist ungültig konfiguriert.' });
     if (m === 'WISO_NOT_CONFIGURED') return res.status(503).json({ error: 'WISO-Zugang ist fast fertig. Bitte WISO_API_KEY und WISO_API_SECRET einmalig sicher in Vercel hinterlegen.' });
     if (m === 'OWNERSHIP_ID_MISSING') return res.status(400).json({ error: 'Bitte zuerst die WISO Ownership-ID eintragen.' });
     console.error('HandwerkPilot WISO', e);
