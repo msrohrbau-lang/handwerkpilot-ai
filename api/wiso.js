@@ -1,7 +1,8 @@
+import crypto from 'node:crypto';
+
 const API_BASE = 'https://api.meinbuero.de';
 const SUPABASE_URL_FALLBACK = 'https://dbaiwcqoigqgknmtctwl.supabase.co';
 const SUPABASE_PROJECT_HOST = 'dbaiwcqoigqgknmtctwl.supabase.co';
-const SUPABASE_PUBLISHABLE_FALLBACK = 'sb_publishable_8irMEHCYLPzCmMljWAUCaA_L7xJSZlr';
 
 function cleanUrl(value, fallback = '') {
   const raw = String(value || fallback || '').trim().replace(/\s+/g, '');
@@ -17,17 +18,53 @@ function cleanUrl(value, fallback = '') {
   }
 }
 
+function fromB64Url(value) {
+  const normalized = String(value || '').replace(/-/g, '+').replace(/_/g, '/');
+  return Buffer.from(normalized + '='.repeat((4 - normalized.length % 4) % 4), 'base64');
+}
+
 async function verifyHandwerkPilotUser(req) {
   const supabaseUrl = cleanUrl(process.env.SUPABASE_URL, SUPABASE_URL_FALLBACK);
-  const supabaseAnonKey = String(process.env.SUPABASE_ANON_KEY || process.env.SUPABASE_PUBLISHABLE_KEY || SUPABASE_PUBLISHABLE_FALLBACK).trim().replace(/\s+/g, '');
   const auth = String(req.headers.authorization || '');
   if (!auth.startsWith('Bearer ')) throw new Error('UNAUTHORIZED');
-  const r = await fetch(`${supabaseUrl}/auth/v1/user`, {
-    headers: { apikey: supabaseAnonKey, Authorization: auth }
-  });
-  const user = await r.json().catch(() => ({}));
-  if (!r.ok || !user?.id) throw new Error('UNAUTHORIZED');
-  return user;
+
+  const token = auth.slice(7).trim();
+  const parts = token.split('.');
+  if (parts.length !== 3) throw new Error('UNAUTHORIZED');
+
+  let header, payload;
+  try {
+    header = JSON.parse(fromB64Url(parts[0]).toString('utf8'));
+    payload = JSON.parse(fromB64Url(parts[1]).toString('utf8'));
+  } catch {
+    throw new Error('UNAUTHORIZED');
+  }
+
+  if (!payload?.sub || !payload?.exp || payload.exp * 1000 <= Date.now()) throw new Error('UNAUTHORIZED');
+  if (typeof payload.iss === 'string' && !payload.iss.startsWith(`${supabaseUrl}/auth/v1`)) throw new Error('UNAUTHORIZED');
+
+  const jwksRes = await fetch(`${supabaseUrl}/auth/v1/.well-known/jwks.json`, { cache: 'no-store' });
+  if (!jwksRes.ok) throw new Error('UNAUTHORIZED');
+  const jwks = await jwksRes.json().catch(() => ({}));
+  const jwk = Array.isArray(jwks?.keys) ? jwks.keys.find(k => !header.kid || k.kid === header.kid) : null;
+  if (!jwk) throw new Error('UNAUTHORIZED');
+
+  try {
+    const key = crypto.createPublicKey({ key: jwk, format: 'jwk' });
+    const data = Buffer.from(`${parts[0]}.${parts[1]}`);
+    const signature = fromB64Url(parts[2]);
+    let valid = false;
+    if (header.alg === 'RS256') {
+      valid = crypto.verify('RSA-SHA256', data, key, signature);
+    } else if (header.alg === 'ES256') {
+      valid = crypto.verify('sha256', data, { key, dsaEncoding: 'ieee-p1363' }, signature);
+    }
+    if (!valid) throw new Error('UNAUTHORIZED');
+  } catch {
+    throw new Error('UNAUTHORIZED');
+  }
+
+  return { id: payload.sub, email: payload.email || '' };
 }
 
 async function getWisoToken(ownershipId) {
