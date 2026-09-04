@@ -59,6 +59,19 @@
     }
   };
 
+  async function getFreshAccessToken(){
+    try{
+      if(typeof sb==='undefined'||!sb?.auth)return '';
+      const {data,error}=await sb.auth.getSession();
+      if(error)return '';
+      if(data?.session){
+        try{session=data.session}catch(_){ }
+        return data.session.access_token||'';
+      }
+      return '';
+    }catch(_){return ''}
+  }
+
   window.testAccountingConnection=async function(){
     const p=getProvider(),s=document.getElementById('hpAccountingStatus');try{
       s.textContent='Verbindung wird geprüft …';
@@ -67,7 +80,12 @@
         if(typeof window.lexwareCall!=='function')throw new Error('Lexware-Schnittstelle ist nicht geladen.');const d=await window.lexwareCall('profile');s.textContent='✓ Verbunden mit '+(d.profile?.companyName||d.profile?.userEmail||'Lexware Office');s.className='status ok';
       }else{
         const ownershipId=(document.getElementById('hpWisoOwnership')?.value||localStorage.getItem(WISO_KEY)||'').trim();if(!ownershipId)throw new Error('Bitte Ownership-ID eingeben.');localStorage.setItem(WISO_KEY,ownershipId);
-        const token=session?.access_token;if(!token)throw new Error('Bitte erneut bei HandwerkPilot anmelden.');const r=await fetch('/api/wiso',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},body:JSON.stringify({action:'status',ownershipId})});const d=await r.json().catch(()=>({}));if(!r.ok)throw new Error(d.error||'WISO-Verbindung fehlgeschlagen.');s.textContent='✓ WISO MeinBüro verbunden.';s.className='status ok';
+        const token=await getFreshAccessToken();
+        if(!token){
+          const authBox=document.getElementById('auth');if(authBox)authBox.classList.remove('hidden');
+          throw new Error('Bitte einmal anmelden. Danach kannst du WISO direkt testen.');
+        }
+        const r=await fetch('/api/wiso',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},body:JSON.stringify({action:'status',ownershipId})});const d=await r.json().catch(()=>({}));if(!r.ok)throw new Error(d.error||'WISO-Verbindung fehlgeschlagen.');s.textContent='✓ WISO MeinBüro verbunden.';s.className='status ok';
       }
     }catch(e){s.textContent=e.message;s.className='status';}
   };
