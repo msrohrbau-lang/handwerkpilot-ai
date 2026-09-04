@@ -67,6 +67,21 @@ async function verifyHandwerkPilotUser(req) {
   return { id: payload.sub, email: payload.email || '' };
 }
 
+function validationDetail(data) {
+  try {
+    const errors = data?.meta?.error;
+    if (!Array.isArray(errors) || !errors.length) return '';
+    return errors.map((e) => {
+      if (!e || typeof e !== 'object') return String(e || '');
+      const field = e.path || e.field || e.param || e.property || '';
+      const msg = e.message || e.msg || e.error || e.reason || '';
+      return [field, msg].filter(Boolean).join(': ');
+    }).filter(Boolean).join(' | ');
+  } catch {
+    return '';
+  }
+}
+
 async function getWisoToken(ownershipId) {
   const key = String(process.env.WISO_API_KEY || '').trim();
   const secret = String(process.env.WISO_API_SECRET || '').trim();
@@ -85,8 +100,9 @@ async function getWisoToken(ownershipId) {
   });
   const data = await r.json().catch(() => ({}));
   if (!r.ok) {
-    console.error('WISO auth error', r.status, data);
-    throw new Error(data?.message || data?.detail || `WISO Anmeldung fehlgeschlagen (${r.status}).`);
+    console.error('WISO auth error', r.status, JSON.stringify(data));
+    const detail = validationDetail(data);
+    throw new Error(detail || data?.message || data?.detail || `WISO Anmeldung fehlgeschlagen (${r.status}).`);
   }
   const token = data?.accessToken || data?.access_token || data?.token;
   if (!token) throw new Error('WISO hat kein Zugriffstoken geliefert.');
@@ -105,7 +121,7 @@ async function wisoFetch(path, token, options = {}) {
   });
   const data = await r.json().catch(() => ({}));
   if (!r.ok) {
-    console.error('WISO API error', path, r.status, data);
+    console.error('WISO API error', path, r.status, JSON.stringify(data));
     throw new Error(data?.message || data?.detail || `WISO API Fehler (${r.status}).`);
   }
   return data;
