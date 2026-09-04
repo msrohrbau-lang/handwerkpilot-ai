@@ -27,7 +27,6 @@ async function verifyHandwerkPilotUser(req) {
   const supabaseUrl = cleanUrl(process.env.SUPABASE_URL, SUPABASE_URL_FALLBACK);
   const auth = String(req.headers.authorization || '');
   if (!auth.startsWith('Bearer ')) throw new Error('UNAUTHORIZED');
-
   const token = auth.slice(7).trim();
   const parts = token.split('.');
   if (parts.length !== 3) throw new Error('UNAUTHORIZED');
@@ -36,9 +35,7 @@ async function verifyHandwerkPilotUser(req) {
   try {
     header = JSON.parse(fromB64Url(parts[0]).toString('utf8'));
     payload = JSON.parse(fromB64Url(parts[1]).toString('utf8'));
-  } catch {
-    throw new Error('UNAUTHORIZED');
-  }
+  } catch { throw new Error('UNAUTHORIZED'); }
 
   if (!payload?.sub || !payload?.exp || payload.exp * 1000 <= Date.now()) throw new Error('UNAUTHORIZED');
   if (typeof payload.iss === 'string' && !payload.iss.startsWith(`${supabaseUrl}/auth/v1`)) throw new Error('UNAUTHORIZED');
@@ -54,15 +51,10 @@ async function verifyHandwerkPilotUser(req) {
     const data = Buffer.from(`${parts[0]}.${parts[1]}`);
     const signature = fromB64Url(parts[2]);
     let valid = false;
-    if (header.alg === 'RS256') {
-      valid = crypto.verify('RSA-SHA256', data, key, signature);
-    } else if (header.alg === 'ES256') {
-      valid = crypto.verify('sha256', data, { key, dsaEncoding: 'ieee-p1363' }, signature);
-    }
+    if (header.alg === 'RS256') valid = crypto.verify('RSA-SHA256', data, key, signature);
+    else if (header.alg === 'ES256') valid = crypto.verify('sha256', data, { key, dsaEncoding: 'ieee-p1363' }, signature);
     if (!valid) throw new Error('UNAUTHORIZED');
-  } catch {
-    throw new Error('UNAUTHORIZED');
-  }
+  } catch { throw new Error('UNAUTHORIZED'); }
 
   return { id: payload.sub, email: payload.email || '' };
 }
@@ -77,9 +69,7 @@ function validationDetail(data) {
       const msg = e.message || e.msg || e.error || e.reason || '';
       return [field, msg].filter(Boolean).join(': ');
     }).filter(Boolean).join(' | ');
-  } catch {
-    return '';
-  }
+  } catch { return ''; }
 }
 
 async function getWisoToken(ownershipId) {
@@ -89,24 +79,48 @@ async function getWisoToken(ownershipId) {
   if (!ownershipId) throw new Error('OWNERSHIP_ID_MISSING');
 
   const basic = Buffer.from(`${key}:${secret}`).toString('base64');
-  const r = await fetch(`${API_BASE}/auth/token`, {
-    method: 'POST',
-    headers: {
-      Authorization: `Basic ${basic}`,
-      'Content-Type': 'application/json',
-      Accept: 'application/json'
+  const attempts = [
+    {
+      label: 'query',
+      url: `${API_BASE}/auth/token?ownershipId=${encodeURIComponent(ownershipId)}`,
+      init: { method: 'POST', headers: { Authorization: `Basic ${basic}`, Accept: 'application/json' } }
     },
-    body: JSON.stringify({ ownershipId })
-  });
-  const data = await r.json().catch(() => ({}));
-  if (!r.ok) {
-    console.error('WISO auth error', r.status, JSON.stringify(data));
-    const detail = validationDetail(data);
-    throw new Error(detail || data?.message || data?.detail || `WISO Anmeldung fehlgeschlagen (${r.status}).`);
+    {
+      label: 'json-object',
+      url: `${API_BASE}/auth/token`,
+      init: { method: 'POST', headers: { Authorization: `Basic ${basic}`, 'Content-Type': 'application/json', Accept: 'application/json' }, body: JSON.stringify({ ownershipId }) }
+    },
+    {
+      label: 'json-string',
+      url: `${API_BASE}/auth/token`,
+      init: { method: 'POST', headers: { Authorization: `Basic ${basic}`, 'Content-Type': 'application/json', Accept: 'application/json' }, body: JSON.stringify(ownershipId) }
+    },
+    {
+      label: 'form',
+      url: `${API_BASE}/auth/token`,
+      init: { method: 'POST', headers: { Authorization: `Basic ${basic}`, 'Content-Type': 'application/x-www-form-urlencoded', Accept: 'application/json' }, body: new URLSearchParams({ ownershipId }).toString() }
+    }
+  ];
+
+  let lastStatus = 400;
+  let lastData = {};
+  for (const attempt of attempts) {
+    const r = await fetch(attempt.url, attempt.init);
+    const data = await r.json().catch(() => ({}));
+    if (r.ok) {
+      const token = data?.accessToken || data?.access_token || data?.token;
+      if (!token) throw new Error('WISO hat kein Zugriffstoken geliefert.');
+      console.log('WISO token format accepted', attempt.label);
+      return token;
+    }
+    lastStatus = r.status;
+    lastData = data;
+    console.error('WISO auth attempt failed', attempt.label, r.status, JSON.stringify(data));
+    if (r.status === 401 || r.status === 403) break;
   }
-  const token = data?.accessToken || data?.access_token || data?.token;
-  if (!token) throw new Error('WISO hat kein Zugriffstoken geliefert.');
-  return token;
+
+  const detail = validationDetail(lastData);
+  throw new Error(detail || lastData?.message || lastData?.detail || `WISO Anmeldung fehlgeschlagen (${lastStatus}).`);
 }
 
 async function wisoFetch(path, token, options = {}) {
@@ -168,10 +182,7 @@ export default async function handler(req, res) {
 
     if (action === 'createCustomer') {
       if (!body.customer?.name) return res.status(400).json({ error: 'Kundenname fehlt.' });
-      const customer = await wisoFetch('/customer/', token, {
-        method: 'POST',
-        body: JSON.stringify(customerPayload(body.customer))
-      });
+      const customer = await wisoFetch('/customer/', token, { method: 'POST', body: JSON.stringify(customerPayload(body.customer)) });
       return res.status(200).json({ ok: true, customer });
     }
 
