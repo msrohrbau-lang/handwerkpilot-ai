@@ -24,8 +24,8 @@
     const st=d.document_type==='rechnung'?(d.status==='paid'?'<span class="pill paid">bezahlt</span>':'<span class="pill open">offen</span>'):'<span class="pill">'+esc(d.document_type)+'</span>';
     const child=documents.find(x=>x.payload?.source_document_id===d.id);
     let b='<button class="btn secondary" onclick="openExistingDoc(\''+d.id+'\')">✏️ Bearbeiten</button>';
-    if(d.document_type==='angebot') b+=child?'<button class="btn green" onclick="openExistingDoc(\''+child.id+'\')">✓ Auftrag erstellt</button>':'<button class="btn secondary" onclick="convertDoc(\''+d.id+'\',\'auftrag\')">→ Auftrag</button>';
-    if(d.document_type==='auftrag') b+=child?'<button class="btn green" onclick="openExistingDoc(\''+child.id+'\')">✓ Rechnung erstellt</button>':'<button class="btn blue" onclick="convertDoc(\''+d.id+'\',\'rechnung\')">→ Rechnung</button>';
+    if(d.document_type==='angebot') b+=child?'<button class="btn green" onclick="openExistingDoc(\''+child.id+'\')">✓ Auftrag erstellt</button>':'<button class="btn secondary" onclick="convertDoc(\''+d.id+'\',\'auftrag\')">→ Auftrag erstellen</button>';
+    if(d.document_type==='auftrag') b+=child?'<button class="btn green" onclick="openExistingDoc(\''+child.id+'\')">✓ Rechnung erstellt</button>':'<button class="btn blue" onclick="convertDoc(\''+d.id+'\',\'rechnung\')">→ Rechnung erstellen</button>';
     if(d.document_type==='rechnung') b+='<button class="btn primary" onclick="syncInvoiceLexware(\''+d.id+'\')">→ Lexware</button>';
     if(d.document_type==='rechnung'&&d.status!=='paid') b+='<button class="btn green" onclick="markPaid(\''+d.id+'\')">✓ Bezahlt</button>';
     b+='<button class="btn danger" onclick="deleteDoc(\''+d.id+'\')">🗑 Löschen</button>';
