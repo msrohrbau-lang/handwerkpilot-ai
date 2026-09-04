@@ -7,6 +7,17 @@
   const q=s=>document.querySelector(s);
   const qa=s=>[...document.querySelectorAll(s)];
 
+  function importWisoCallback(){
+    try{
+      const u=new URL(location.href),iid=(u.searchParams.get('iid')||'').trim();
+      if(!iid)return;
+      localStorage.setItem(PROVIDER_KEY,'wiso');
+      localStorage.setItem(WISO_KEY,iid);
+      u.searchParams.delete('iid');u.searchParams.delete('accounting');
+      history.replaceState({},'',u.pathname+(u.searchParams.toString()?'?'+u.searchParams.toString():'')+u.hash);
+    }catch(_){ }
+  }
+
   function styleAccounting(){
     if(document.getElementById('hp-accounting-style'))return;
     const st=document.createElement('style');st.id='hp-accounting-style';st.textContent='.hp-provider-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}.hp-provider{border:2px solid #dbe2ea;background:#fff;border-radius:16px;padding:14px;text-align:left;font-weight:900}.hp-provider.active{border-color:#0f172a;background:#f8fafc}.hp-provider small{display:block;color:#667085;font-weight:500;margin-top:4px}.hp-setup{margin-top:14px}.hp-note{font-size:12px;color:#667085;line-height:1.45}.hp-badge{display:inline-block;padding:5px 8px;border-radius:999px;background:#eef2f6;font-size:11px;font-weight:850;margin-left:6px}@media(max-width:560px){.hp-provider-grid{grid-template-columns:1fr}}';document.head.appendChild(st);
@@ -32,7 +43,7 @@
       host.innerHTML='<label>Lexware API-Key</label><input id="hpLexKey" type="password" autocomplete="off" placeholder="API-Key eingeben"><div class="actions"><button class="btn primary" onclick="saveAccountingSetup()">Auswahl speichern</button><button class="btn secondary" onclick="testAccountingConnection()">Verbindung testen</button></div><p class="hp-note">Lexware ist für die Rechnungsübertragung bereits freigeschaltet.</p><div id="hpAccountingStatus" class="status"></div>';
       const saved=sessionStorage.getItem(LEX_KEY)||localStorage.getItem(LEX_KEY)||'';if(saved)document.getElementById('hpLexKey').value=saved;
     }else{
-      host.innerHTML='<label>WISO Ownership-ID</label><input id="hpWisoOwnership" placeholder="Ownership-ID"><div class="actions"><button class="btn primary" onclick="saveAccountingSetup()">Auswahl speichern</button><button class="btn secondary" onclick="testAccountingConnection()">Verbindung testen</button></div><p class="hp-note">WISO kann bereits verbunden und geprüft werden. Die Rechnungsübergabe bleibt bis zur vollständigen Freigabe als Beta gekennzeichnet.</p><div id="hpAccountingStatus" class="status"></div>';
+      host.innerHTML='<label>WISO Ownership-ID</label><input id="hpWisoOwnership" placeholder="Ownership-ID"><div class="actions"><button class="btn primary" onclick="saveAccountingSetup()">Auswahl speichern</button><button class="btn secondary" onclick="testAccountingConnection()">Verbindung testen</button></div><p class="hp-note">Die WISO-Auswahl und Ownership-ID werden dauerhaft auf diesem Gerät gespeichert.</p><div id="hpAccountingStatus" class="status"></div>';
       document.getElementById('hpWisoOwnership').value=localStorage.getItem(WISO_KEY)||'';
     }
   }
@@ -67,7 +78,7 @@
   window.syncInvoiceAccounting=async function(id){
     const p=getProvider();
     if(p==='lexware')return window.syncInvoiceLexware(id);
-    alert('WISO MeinBüro ist als Buchhaltung gespeichert. Die direkte Rechnungsübertragung ist in dieser Testversion noch als Beta gesperrt.');
+    alert('WISO MeinBüro ist verbunden. Die direkte Rechnungsübertragung wird als nächster Schritt freigeschaltet.');
   };
 
   const oldCard=window.hpDocCard;
@@ -78,5 +89,5 @@
   const oldShow=window.showView;
   if(oldShow)window.showView=function(id){oldShow(id);if(id==='wiso')renderAccounting();};
 
-  styleAccounting();renameNavigation();renderAccounting();
+  importWisoCallback();styleAccounting();renameNavigation();renderAccounting();
 })();
