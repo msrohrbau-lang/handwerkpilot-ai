@@ -4,7 +4,6 @@
   const LEX_KEY='hp_lexware_key';
   const getProvider=()=>localStorage.getItem(PROVIDER_KEY)||'lexware';
   const setProvider=p=>localStorage.setItem(PROVIDER_KEY,p);
-  const q=s=>document.querySelector(s);
   const qa=s=>[...document.querySelectorAll(s)];
 
   function importWisoCallback(){
@@ -20,7 +19,7 @@
 
   function styleAccounting(){
     if(document.getElementById('hp-accounting-style'))return;
-    const st=document.createElement('style');st.id='hp-accounting-style';st.textContent='.hp-provider-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}.hp-provider{border:2px solid #dbe2ea;background:#fff;border-radius:16px;padding:14px;text-align:left;font-weight:900}.hp-provider.active{border-color:#0f172a;background:#f8fafc}.hp-provider small{display:block;color:#667085;font-weight:500;margin-top:4px}.hp-setup{margin-top:14px}.hp-note{font-size:12px;color:#667085;line-height:1.45}.hp-badge{display:inline-block;padding:5px 8px;border-radius:999px;background:#eef2f6;font-size:11px;font-weight:850;margin-left:6px}@media(max-width:560px){.hp-provider-grid{grid-template-columns:1fr}}';document.head.appendChild(st);
+    const st=document.createElement('style');st.id='hp-accounting-style';st.textContent='.hp-provider-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}.hp-provider{border:2px solid #dbe2ea;background:#fff;border-radius:16px;padding:14px;text-align:left;font-weight:900}.hp-provider.active{border-color:#0f172a;background:#f8fafc}.hp-provider small{display:block;color:#667085;font-weight:500;margin-top:4px}.hp-setup{margin-top:14px}.hp-note{font-size:12px;color:#667085;line-height:1.45}.hp-badge{display:inline-block;padding:5px 8px;border-radius:999px;background:#e8f7ef;color:#087f5b;font-size:11px;font-weight:850;margin-left:6px}@media(max-width:560px){.hp-provider-grid{grid-template-columns:1fr}}';document.head.appendChild(st);
   }
 
   function renameNavigation(){
@@ -31,7 +30,7 @@
   function renderAccounting(){
     const box=document.getElementById('wiso');if(!box)return;
     const p=getProvider();
-    box.innerHTML='<div class="card"><h2 style="margin-top:0">Buchhaltung einrichten</h2><p class="tiny">Einmal auswählen, danach verwendet HandwerkPilot automatisch dieses System.</p><div class="hp-provider-grid"><button id="hpLexChoice" class="hp-provider '+(p==='lexware'?'active':'')+'" onclick="selectAccountingProvider(\'lexware\')">Lexware Office<small>Rechnungen direkt als Entwurf übertragen.</small></button><button id="hpWisoChoice" class="hp-provider '+(p==='wiso'?'active':'')+'" onclick="selectAccountingProvider(\'wiso\')">WISO MeinBüro <span class="hp-badge">Beta</span><small>Verbindung speichern und testen.</small></button></div><div id="hpAccountingSetup" class="hp-setup"></div></div>';
+    box.innerHTML='<div class="card"><h2 style="margin-top:0">Buchhaltung einrichten</h2><p class="tiny">Einmal auswählen, danach verwendet HandwerkPilot automatisch dieses System.</p><div class="hp-provider-grid"><button id="hpLexChoice" class="hp-provider '+(p==='lexware'?'active':'')+'" onclick="selectAccountingProvider(\'lexware\')">Lexware Office<small>Rechnungen direkt übertragen.</small></button><button id="hpWisoChoice" class="hp-provider '+(p==='wiso'?'active':'')+'" onclick="selectAccountingProvider(\'wiso\')">WISO MeinBüro <span class="hp-badge">Direktübertragung</span><small>Kunde, Auftrag und Rechnung automatisch anlegen.</small></button></div><div id="hpAccountingSetup" class="hp-setup"></div></div>';
     renderProviderSetup();
   }
 
@@ -40,10 +39,10 @@
   function renderProviderSetup(){
     const p=getProvider(),host=document.getElementById('hpAccountingSetup');if(!host)return;
     if(p==='lexware'){
-      host.innerHTML='<label>Lexware API-Key</label><input id="hpLexKey" type="password" autocomplete="off" placeholder="API-Key eingeben"><div class="actions"><button class="btn primary" onclick="saveAccountingSetup()">Auswahl speichern</button><button class="btn secondary" onclick="testAccountingConnection()">Verbindung testen</button></div><p class="hp-note">Lexware ist für die Rechnungsübertragung bereits freigeschaltet.</p><div id="hpAccountingStatus" class="status"></div>';
+      host.innerHTML='<label>Lexware API-Key</label><input id="hpLexKey" type="password" autocomplete="off" placeholder="API-Key eingeben"><div class="actions"><button class="btn primary" onclick="saveAccountingSetup()">Auswahl speichern</button><button class="btn secondary" onclick="testAccountingConnection()">Verbindung testen</button></div><p class="hp-note">Lexware ist für die Rechnungsübertragung freigeschaltet.</p><div id="hpAccountingStatus" class="status"></div>';
       const saved=sessionStorage.getItem(LEX_KEY)||localStorage.getItem(LEX_KEY)||'';if(saved)document.getElementById('hpLexKey').value=saved;
     }else{
-      host.innerHTML='<label>WISO Ownership-ID</label><input id="hpWisoOwnership" placeholder="Ownership-ID"><div class="actions"><button class="btn primary" onclick="saveAccountingSetup()">Auswahl speichern</button><button class="btn secondary" onclick="testAccountingConnection()">Verbindung testen</button></div><p class="hp-note">Die WISO-Auswahl und Ownership-ID werden dauerhaft auf diesem Gerät gespeichert.</p><div id="hpAccountingStatus" class="status"></div>';
+      host.innerHTML='<label>WISO Ownership-ID</label><input id="hpWisoOwnership" placeholder="Ownership-ID"><div class="actions"><button class="btn primary" onclick="saveAccountingSetup()">Auswahl speichern</button><button class="btn secondary" onclick="testAccountingConnection()">Verbindung testen</button></div><p class="hp-note">Nach erfolgreicher Verbindung kannst du jede Rechnung mit einem Klick an WISO MeinBüro übergeben.</p><div id="hpAccountingStatus" class="status"></div>';
       document.getElementById('hpWisoOwnership').value=localStorage.getItem(WISO_KEY)||'';
     }
   }
@@ -64,12 +63,20 @@
       if(typeof sb==='undefined'||!sb?.auth)return '';
       const {data,error}=await sb.auth.getSession();
       if(error)return '';
-      if(data?.session){
-        try{session=data.session}catch(_){ }
-        return data.session.access_token||'';
-      }
+      if(data?.session){try{session=data.session}catch(_){ } return data.session.access_token||'';}
       return '';
     }catch(_){return ''}
+  }
+
+  async function wisoCall(action,payload={}){
+    const ownershipId=(localStorage.getItem(WISO_KEY)||'').trim();
+    if(!ownershipId)throw new Error('Bitte zuerst WISO MeinBüro unter Buchhaltung verbinden.');
+    const token=await getFreshAccessToken();
+    if(!token)throw new Error('Bitte erneut bei HandwerkPilot anmelden.');
+    const r=await fetch('/api/wiso',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},body:JSON.stringify({action,ownershipId,...payload})});
+    const d=await r.json().catch(()=>({}));
+    if(!r.ok)throw new Error(d.error||'WISO-Verbindung fehlgeschlagen.');
+    return d;
   }
 
   window.testAccountingConnection=async function(){
@@ -79,13 +86,8 @@
         const k=(document.getElementById('hpLexKey')?.value||localStorage.getItem(LEX_KEY)||'').trim();if(!k)throw new Error('Bitte API-Key eingeben.');sessionStorage.setItem(LEX_KEY,k);localStorage.setItem(LEX_KEY,k);
         if(typeof window.lexwareCall!=='function')throw new Error('Lexware-Schnittstelle ist nicht geladen.');const d=await window.lexwareCall('profile');s.textContent='✓ Verbunden mit '+(d.profile?.companyName||d.profile?.userEmail||'Lexware Office');s.className='status ok';
       }else{
-        const ownershipId=(document.getElementById('hpWisoOwnership')?.value||localStorage.getItem(WISO_KEY)||'').trim();if(!ownershipId)throw new Error('Bitte Ownership-ID eingeben.');localStorage.setItem(WISO_KEY,ownershipId);
-        const token=await getFreshAccessToken();
-        if(!token){
-          const authBox=document.getElementById('auth');if(authBox)authBox.classList.remove('hidden');
-          throw new Error('Bitte einmal anmelden. Danach kannst du WISO direkt testen.');
-        }
-        const r=await fetch('/api/wiso',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},body:JSON.stringify({action:'status',ownershipId})});const d=await r.json().catch(()=>({}));if(!r.ok)throw new Error(d.error||'WISO-Verbindung fehlgeschlagen.');s.textContent='✓ WISO MeinBüro verbunden.';s.className='status ok';
+        const id=(document.getElementById('hpWisoOwnership')?.value||'').trim();if(id)localStorage.setItem(WISO_KEY,id);
+        await wisoCall('status');s.textContent='✓ WISO MeinBüro verbunden. Rechnungsübertragung ist bereit.';s.className='status ok';
       }
     }catch(e){s.textContent=e.message;s.className='status';}
   };
@@ -96,7 +98,24 @@
   window.syncInvoiceAccounting=async function(id){
     const p=getProvider();
     if(p==='lexware')return window.syncInvoiceLexware(id);
-    alert('WISO MeinBüro ist verbunden. Die direkte Rechnungsübertragung wird als nächster Schritt freigeschaltet.');
+    try{
+      const doc=(typeof documents!=='undefined'&&Array.isArray(documents))?documents.find(x=>String(x.id)===String(id)):null;
+      if(!doc)throw new Error('Rechnung wurde nicht gefunden.');
+      if(doc.document_type!=='rechnung')throw new Error('Nur Rechnungen können übertragen werden.');
+      const cid=doc.customer_id||doc.payload?.customer_id||'';
+      const customer=(typeof customers!=='undefined'&&Array.isArray(customers))?customers.find(x=>String(x.id)===String(cid)):null;
+      const fallbackName=doc.payload?.customer_name||'';
+      if(!customer&&!fallbackName)throw new Error('Für diese Rechnung ist kein Kunde hinterlegt.');
+      const btn=[...document.querySelectorAll('button')].find(b=>b.getAttribute('onclick')?.includes(`syncInvoiceAccounting('${id}')`));
+      const oldText=btn?.textContent;if(btn){btn.disabled=true;btn.textContent='Übertragung …';}
+      const result=await wisoCall('syncInvoice',{document:doc,customer:customer||{name:fallbackName,street:'',city:doc.payload?.customer_address||''}});
+      if(btn){btn.disabled=false;btn.textContent='✓ In WISO';}
+      alert('✓ Rechnung wurde an WISO MeinBüro übertragen'+(result.invoiceId?` (ID ${result.invoiceId})`:'')+'.');
+      return result;
+    }catch(e){
+      qa('button').forEach(b=>{if(b.disabled&&/Übertragung/.test(b.textContent)){b.disabled=false;b.textContent='→ Buchhaltung';}});
+      alert('WISO: '+e.message);throw e;
+    }
   };
 
   const oldCard=window.hpDocCard;
