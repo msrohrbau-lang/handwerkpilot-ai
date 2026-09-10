@@ -13,9 +13,7 @@ function cleanUrl(value, fallback = '') {
     const parsed = new URL(url);
     if (parsed.hostname !== SUPABASE_PROJECT_HOST) return SUPABASE_URL_FALLBACK;
     return `${parsed.protocol}//${parsed.hostname}`;
-  } catch {
-    return SUPABASE_URL_FALLBACK;
-  }
+  } catch { return SUPABASE_URL_FALLBACK; }
 }
 
 function fromB64Url(value) {
@@ -30,22 +28,18 @@ async function verifyHandwerkPilotUser(req) {
   const token = auth.slice(7).trim();
   const parts = token.split('.');
   if (parts.length !== 3) throw new Error('UNAUTHORIZED');
-
   let header, payload;
   try {
     header = JSON.parse(fromB64Url(parts[0]).toString('utf8'));
     payload = JSON.parse(fromB64Url(parts[1]).toString('utf8'));
   } catch { throw new Error('UNAUTHORIZED'); }
-
   if (!payload?.sub || !payload?.exp || payload.exp * 1000 <= Date.now()) throw new Error('UNAUTHORIZED');
   if (typeof payload.iss === 'string' && !payload.iss.startsWith(`${supabaseUrl}/auth/v1`)) throw new Error('UNAUTHORIZED');
-
   const jwksRes = await fetch(`${supabaseUrl}/auth/v1/.well-known/jwks.json`, { cache: 'no-store' });
   if (!jwksRes.ok) throw new Error('UNAUTHORIZED');
   const jwks = await jwksRes.json().catch(() => ({}));
   const jwk = Array.isArray(jwks?.keys) ? jwks.keys.find(k => !header.kid || k.kid === header.kid) : null;
   if (!jwk) throw new Error('UNAUTHORIZED');
-
   try {
     const key = crypto.createPublicKey({ key: jwk, format: 'jwk' });
     const data = Buffer.from(`${parts[0]}.${parts[1]}`);
@@ -55,13 +49,12 @@ async function verifyHandwerkPilotUser(req) {
     else if (header.alg === 'ES256') valid = crypto.verify('sha256', data, { key, dsaEncoding: 'ieee-p1363' }, signature);
     if (!valid) throw new Error('UNAUTHORIZED');
   } catch { throw new Error('UNAUTHORIZED'); }
-
   return { id: payload.sub, email: payload.email || '' };
 }
 
 function validationDetail(data) {
   try {
-    const errors = data?.meta?.error;
+    const errors = data?.meta?.error || data?.errors || data?.error;
     if (!Array.isArray(errors) || !errors.length) return '';
     return errors.map((e) => {
       if (!e || typeof e !== 'object') return String(e || '');
@@ -77,50 +70,23 @@ async function getWisoToken(ownershipId) {
   const secret = String(process.env.WISO_API_SECRET || '').trim();
   if (!key || !secret) throw new Error('WISO_NOT_CONFIGURED');
   if (!ownershipId) throw new Error('OWNERSHIP_ID_MISSING');
-
   const basic = Buffer.from(`${key}:${secret}`).toString('base64');
   const attempts = [
-    {
-      label: 'query',
-      url: `${API_BASE}/auth/token?ownershipId=${encodeURIComponent(ownershipId)}`,
-      init: { method: 'POST', headers: { Authorization: `Basic ${basic}`, Accept: 'application/json' } }
-    },
-    {
-      label: 'json-object',
-      url: `${API_BASE}/auth/token`,
-      init: { method: 'POST', headers: { Authorization: `Basic ${basic}`, 'Content-Type': 'application/json', Accept: 'application/json' }, body: JSON.stringify({ ownershipId }) }
-    },
-    {
-      label: 'json-string',
-      url: `${API_BASE}/auth/token`,
-      init: { method: 'POST', headers: { Authorization: `Basic ${basic}`, 'Content-Type': 'application/json', Accept: 'application/json' }, body: JSON.stringify(ownershipId) }
-    },
-    {
-      label: 'form',
-      url: `${API_BASE}/auth/token`,
-      init: { method: 'POST', headers: { Authorization: `Basic ${basic}`, 'Content-Type': 'application/x-www-form-urlencoded', Accept: 'application/json' }, body: new URLSearchParams({ ownershipId }).toString() }
-    }
+    { url: `${API_BASE}/auth/token?ownershipId=${encodeURIComponent(ownershipId)}`, init: { method: 'POST', headers: { Authorization: `Basic ${basic}`, Accept: 'application/json' } } },
+    { url: `${API_BASE}/auth/token`, init: { method: 'POST', headers: { Authorization: `Basic ${basic}`, 'Content-Type': 'application/json', Accept: 'application/json' }, body: JSON.stringify({ ownershipId }) } }
   ];
-
-  let lastStatus = 400;
-  let lastData = {};
+  let lastStatus = 400, lastData = {};
   for (const attempt of attempts) {
     const r = await fetch(attempt.url, attempt.init);
     const data = await r.json().catch(() => ({}));
     if (r.ok) {
       const token = data?.accessToken || data?.access_token || data?.token;
       if (!token) throw new Error('WISO hat kein Zugriffstoken geliefert.');
-      console.log('WISO token format accepted', attempt.label);
       return token;
     }
-    lastStatus = r.status;
-    lastData = data;
-    console.error('WISO auth attempt failed', attempt.label, r.status, JSON.stringify(data));
-    if (r.status === 401 || r.status === 403) break;
+    lastStatus = r.status; lastData = data;
   }
-
-  const detail = validationDetail(lastData);
-  throw new Error(detail || lastData?.message || lastData?.detail || `WISO Anmeldung fehlgeschlagen (${lastStatus}).`);
+  throw new Error(validationDetail(lastData) || lastData?.message || lastData?.detail || `WISO Anmeldung fehlgeschlagen (${lastStatus}).`);
 }
 
 async function wisoFetch(path, token, options = {}) {
@@ -133,10 +99,13 @@ async function wisoFetch(path, token, options = {}) {
       ...(options.headers || {})
     }
   });
-  const data = await r.json().catch(() => ({}));
+  const raw = await r.text();
+  let data = {};
+  try { data = raw ? JSON.parse(raw) : {}; } catch { data = { raw }; }
   if (!r.ok) {
-    console.error('WISO API error', path, r.status, JSON.stringify(data));
-    throw new Error(data?.message || data?.detail || `WISO API Fehler (${r.status}).`);
+    const detail = validationDetail(data);
+    const err = new Error(detail || data?.message || data?.detail || `WISO API Fehler (${r.status}).`);
+    err.status = r.status; err.data = data; throw err;
   }
   return data;
 }
@@ -152,19 +121,81 @@ function customerPayload(c = {}) {
   return {
     email: c.email || undefined,
     phone: c.phone || undefined,
-    customerDefaultAddress: {
-      billingAddress: {
-        kind: 'company',
-        companyName: c.name || '',
-        firstName: c.contact_person || '',
-        lastName: '',
-        street: c.street || '',
-        zipCode: place.zipCode,
-        city: place.city,
-        countryIso: 'DE'
-      }
-    }
+    customerDefaultAddress: { billingAddress: {
+      kind: 'company', companyName: c.name || '', firstName: c.contact_person || '', lastName: '',
+      street: c.street || '', zipCode: place.zipCode, city: place.city, countryIso: 'DE'
+    } }
   };
+}
+
+function pickId(obj) {
+  return obj?.id || obj?.data?.id || obj?.customerId || obj?.orderId || obj?.invoiceId || obj?.data?.customerId || obj?.data?.orderId || obj?.data?.invoiceId || null;
+}
+
+function normalizePositions(doc = {}) {
+  const positions = Array.isArray(doc?.payload?.positions) ? doc.payload.positions : Array.isArray(doc.positions) ? doc.positions : [];
+  return positions.filter(p => String(p?.desc || p?.description || '').trim() || Number(p?.price || 0) !== 0).map((p, i) => ({
+    description: String(p?.desc || p?.description || `Position ${i + 1}`).trim(),
+    quantity: Number(p?.qty ?? p?.quantity ?? 1) || 1,
+    unitPrice: Number(p?.price ?? p?.unitPrice ?? 0) || 0,
+    vatRate: Number(p?.vatRate ?? 19)
+  }));
+}
+
+async function createOrderAdaptive(token, customerId, doc) {
+  const positions = normalizePositions(doc);
+  if (!positions.length) throw new Error('Die Rechnung enthält keine Positionen.');
+  const subject = String(doc?.payload?.subject || doc?.title || doc?.document_number || 'HandwerkPilot Rechnung').trim();
+  const date = String(doc?.payload?.date || '').trim() || new Date().toISOString().slice(0,10);
+  const note = String(doc?.payload?.note || '').trim();
+  const variants = [
+    {
+      customerId,
+      subject,
+      orderDate: date,
+      note: note || undefined,
+      positions: positions.map(p => ({ description: p.description, quantity: p.quantity, price: p.unitPrice, vatRate: p.vatRate }))
+    },
+    {
+      customerId,
+      title: subject,
+      date,
+      items: positions.map(p => ({ description: p.description, quantity: p.quantity, unitPrice: p.unitPrice, taxRate: p.vatRate }))
+    },
+    {
+      customer: { id: customerId },
+      subject,
+      date,
+      orderPositions: positions.map(p => ({ text: p.description, quantity: p.quantity, unitPrice: p.unitPrice, vatPercent: p.vatRate }))
+    }
+  ];
+  let lastErr;
+  for (const payload of variants) {
+    try { return await wisoFetch('/order/', token, { method: 'POST', body: JSON.stringify(payload) }); }
+    catch (e) {
+      lastErr = e;
+      if (e?.status === 401 || e?.status === 403) throw e;
+    }
+  }
+  throw lastErr || new Error('WISO Auftrag konnte nicht erstellt werden.');
+}
+
+async function findOrCreateCustomer(token, customer = {}) {
+  if (!customer?.name) throw new Error('Kundenname fehlt.');
+  if (customer.wisoId) return customer.wisoId;
+  if (customer.email) {
+    try {
+      const found = await wisoFetch(`/customer?offset=0&limit=20&search=${encodeURIComponent(customer.email)}`, token);
+      const list = found?.data || found?.items || found?.customers || found?.rows || [];
+      const hit = Array.isArray(list) ? list.find(x => String(x?.email || '').toLowerCase() === String(customer.email).toLowerCase()) : null;
+      const id = pickId(hit);
+      if (id) return id;
+    } catch (_) {}
+  }
+  const created = await wisoFetch('/customer/', token, { method: 'POST', body: JSON.stringify(customerPayload(customer)) });
+  const id = pickId(created);
+  if (!id) throw new Error('WISO hat nach dem Anlegen des Kunden keine Kunden-ID geliefert.');
+  return id;
 }
 
 export default async function handler(req, res) {
@@ -179,20 +210,27 @@ export default async function handler(req, res) {
       const account = await wisoFetch('/setting/account', token);
       return res.status(200).json({ connected: true, account });
     }
-
     if (action === 'createCustomer') {
-      if (!body.customer?.name) return res.status(400).json({ error: 'Kundenname fehlt.' });
-      const customer = await wisoFetch('/customer/', token, { method: 'POST', body: JSON.stringify(customerPayload(body.customer)) });
-      return res.status(200).json({ ok: true, customer });
+      const customerId = await findOrCreateCustomer(token, body.customer || {});
+      return res.status(200).json({ ok: true, customerId });
     }
-
+    if (action === 'syncInvoice') {
+      if (body?.document?.document_type && body.document.document_type !== 'rechnung') return res.status(400).json({ error: 'Nur Rechnungen können an WISO übertragen werden.' });
+      const customerId = await findOrCreateCustomer(token, body.customer || {});
+      const order = await createOrderAdaptive(token, customerId, body.document || {});
+      const orderId = pickId(order);
+      if (!orderId) throw new Error('WISO hat keine Auftrags-ID zurückgegeben.');
+      const invoice = await wisoFetch(`/order/${encodeURIComponent(orderId)}/invoice`, token, { method: 'POST' });
+      const invoiceId = pickId(invoice);
+      return res.status(200).json({ ok: true, customerId, orderId, invoiceId, order, invoice });
+    }
     return res.status(400).json({ error: 'Unbekannte WISO-Aktion.' });
   } catch (e) {
     const m = String(e?.message || e);
     if (m === 'UNAUTHORIZED') return res.status(401).json({ error: 'Bitte erneut bei HandwerkPilot anmelden.' });
-    if (m === 'WISO_NOT_CONFIGURED') return res.status(503).json({ error: 'WISO-Zugang ist fast fertig. Bitte WISO_API_KEY und WISO_API_SECRET einmalig sicher in Vercel hinterlegen.' });
+    if (m === 'WISO_NOT_CONFIGURED') return res.status(503).json({ error: 'WISO_API_KEY und WISO_API_SECRET fehlen noch in Vercel.' });
     if (m === 'OWNERSHIP_ID_MISSING') return res.status(400).json({ error: 'Bitte zuerst die WISO Ownership-ID eintragen.' });
     console.error('HandwerkPilot WISO', e);
-    return res.status(502).json({ error: m || 'WISO-Verbindung fehlgeschlagen.' });
+    return res.status(502).json({ error: m || 'WISO-Verbindung fehlgeschlagen.', details: e?.data || undefined });
   }
 }
