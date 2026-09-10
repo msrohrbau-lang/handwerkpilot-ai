@@ -2,6 +2,7 @@
   const PROVIDER_KEY='hp_accounting_provider';
   const WISO_KEY='hp_wiso_ownership';
   const LEX_KEY='hp_lexware_key';
+  const WISO_CALLBACK_KEY='hp_wiso_callback_fresh';
   const getProvider=()=>localStorage.getItem(PROVIDER_KEY)||'lexware';
   const setProvider=p=>localStorage.setItem(PROVIDER_KEY,p);
   const qa=s=>[...document.querySelectorAll(s)];
@@ -9,11 +10,19 @@
   function importWisoCallback(){
     try{
       const u=new URL(location.href),iid=(u.searchParams.get('iid')||'').trim();
+      const isCallback=u.searchParams.get('wiso_callback')==='1'||u.searchParams.get('accounting')==='wiso';
       if(!iid)return;
       localStorage.setItem(PROVIDER_KEY,'wiso');
       localStorage.setItem(WISO_KEY,iid);
-      u.searchParams.delete('iid');u.searchParams.delete('accounting');
+      if(isCallback)sessionStorage.setItem(WISO_CALLBACK_KEY,iid);
+      u.searchParams.delete('iid');u.searchParams.delete('accounting');u.searchParams.delete('wiso_callback');
       history.replaceState({},'',u.pathname+(u.searchParams.toString()?'?'+u.searchParams.toString():'')+u.hash);
+      setTimeout(()=>{
+        const input=document.getElementById('hpWisoOwnership');
+        if(input)input.value=iid;
+        const s=document.getElementById('hpAccountingStatus');
+        if(s){s.textContent='✓ Neue WISO-Verbindung übernommen.';s.className='status ok';}
+      },0);
     }catch(_){ }
   }
 
@@ -44,6 +53,8 @@
     }else{
       host.innerHTML='<label>WISO Ownership-ID</label><input id="hpWisoOwnership" placeholder="Ownership-ID"><div class="actions"><button class="btn primary" onclick="saveAccountingSetup()">Auswahl speichern</button><button class="btn secondary" onclick="testAccountingConnection()">Verbindung testen</button></div><p class="hp-note">Nach erfolgreicher Verbindung kannst du jede Rechnung mit einem Klick an WISO MeinBüro übergeben.</p><div id="hpAccountingStatus" class="status"></div>';
       document.getElementById('hpWisoOwnership').value=localStorage.getItem(WISO_KEY)||'';
+      const fresh=sessionStorage.getItem(WISO_CALLBACK_KEY)||'';
+      if(fresh){const s=document.getElementById('hpAccountingStatus');if(s){s.textContent='✓ Neue WISO-Verbindung übernommen.';s.className='status ok';}}
     }
   }
 
@@ -54,7 +65,7 @@
       sessionStorage.setItem(LEX_KEY,k);localStorage.setItem(LEX_KEY,k);s.textContent='✓ Lexware als Buchhaltung gespeichert.';s.className='status ok';
     }else{
       const id=(document.getElementById('hpWisoOwnership')?.value||'').trim();if(!id){s.textContent='Bitte Ownership-ID eingeben.';return}
-      localStorage.setItem(WISO_KEY,id);s.textContent='✓ WISO MeinBüro als Buchhaltung gespeichert.';s.className='status ok';
+      localStorage.setItem(WISO_KEY,id);sessionStorage.removeItem(WISO_CALLBACK_KEY);s.textContent='✓ WISO MeinBüro als Buchhaltung gespeichert.';s.className='status ok';
     }
   };
 
@@ -87,7 +98,7 @@
         if(typeof window.lexwareCall!=='function')throw new Error('Lexware-Schnittstelle ist nicht geladen.');const d=await window.lexwareCall('profile');s.textContent='✓ Verbunden mit '+(d.profile?.companyName||d.profile?.userEmail||'Lexware Office');s.className='status ok';
       }else{
         const id=(document.getElementById('hpWisoOwnership')?.value||'').trim();if(id)localStorage.setItem(WISO_KEY,id);
-        await wisoCall('status');s.textContent='✓ WISO MeinBüro verbunden. Rechnungsübertragung ist bereit.';s.className='status ok';
+        await wisoCall('status');sessionStorage.removeItem(WISO_CALLBACK_KEY);s.textContent='✓ WISO MeinBüro verbunden. Rechnungsübertragung ist bereit.';s.className='status ok';
       }
     }catch(e){s.textContent=e.message;s.className='status';}
   };
@@ -107,7 +118,7 @@
       const fallbackName=doc.payload?.customer_name||'';
       if(!customer&&!fallbackName)throw new Error('Für diese Rechnung ist kein Kunde hinterlegt.');
       const btn=[...document.querySelectorAll('button')].find(b=>b.getAttribute('onclick')?.includes(`syncInvoiceAccounting('${id}')`));
-      const oldText=btn?.textContent;if(btn){btn.disabled=true;btn.textContent='Übertragung …';}
+      if(btn){btn.disabled=true;btn.textContent='Übertragung …';}
       const result=await wisoCall('syncInvoice',{document:doc,customer:customer||{name:fallbackName,street:'',city:doc.payload?.customer_address||''}});
       if(btn){btn.disabled=false;btn.textContent='✓ In WISO';}
       alert('✓ Rechnung wurde an WISO MeinBüro übertragen'+(result.invoiceId?` (ID ${result.invoiceId})`:'')+'.');
