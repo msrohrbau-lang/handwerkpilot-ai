@@ -18,6 +18,8 @@ async function remember(doc,result){
   const r=await sb.from('documents').update({payload}).eq('id',doc.id).select().single();
   if(!r.error)documents=documents.map(x=>x.id===doc.id?r.data:x);
 }
+const sync0=window.syncInvoiceAccounting;
+if(sync0)window.syncInvoiceAccounting=async function(id){const result=await sync0(id);if(provider()==='wiso'&&result?.invoiceId){const doc=documents.find(x=>String(x.id)===String(id));await remember(doc,result);renderDocs()}return result};
 window.hpSyncWisoPayment=async function(id,{silent=false}={}){
   const doc=documents.find(x=>String(x.id)===String(id));if(!doc)throw new Error('Rechnung nicht gefunden.');
   if(doc.document_type!=='rechnung'||doc.status!=='paid')throw new Error('Rechnung ist nicht als bezahlt markiert.');
