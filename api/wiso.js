@@ -22,24 +22,26 @@ async function verifyHandwerkPilotUser(req) {
  try{const key=crypto.createPublicKey({key:jwk,format:'jwk'}),data=Buffer.from(`${parts[0]}.${parts[1]}`),signature=fromB64Url(parts[2]);let valid=false;if(header.alg==='RS256')valid=crypto.verify('RSA-SHA256',data,key,signature);else if(header.alg==='ES256')valid=crypto.verify('sha256',data,{key,dsaEncoding:'ieee-p1363'},signature);if(!valid)throw new Error();}catch{throw new Error('UNAUTHORIZED');}
  return {id:payload.sub,email:payload.email||''};
 }
+function flattenValidation(value,prefix=''){
+ const out=[];
+ if(value==null)return out;
+ if(Array.isArray(value)){value.forEach((v,i)=>out.push(...flattenValidation(v,prefix?`${prefix}[${i}]`:`[${i}]`)));return out;}
+ if(typeof value==='object'){
+   const msg=value.message||value.msg||value.error||value.reason||value.description;
+   const field=value.path||value.field||value.param||value.property||value.key||value.instancePath;
+   if(msg||field){out.push([prefix,field,msg].filter(Boolean).join(': '));return out;}
+   for(const [k,v] of Object.entries(value))out.push(...flattenValidation(v,prefix?`${prefix}.${k}`:k));
+   return out;
+ }
+ out.push(`${prefix?prefix+': ':''}${String(value)}`);return out;
+}
 function validationDetail(data){
-  try{
-    const errors=data?.meta?.error||data?.errors||data?.error;
-    if(Array.isArray(errors)&&errors.length){
-      return errors.map(e=>{
-        if(e==null)return '';
-        if(typeof e!=='object')return String(e);
-        const field=e.path||e.field||e.param||e.property||e.key||e.instancePath||'';
-        const msg=e.message||e.msg||e.error||e.reason||e.description||'';
-        if(field||msg)return [field,msg].filter(Boolean).join(': ');
-        try{return JSON.stringify(e)}catch{return String(e)}
-      }).filter(Boolean).join(' | ');
-    }
-    if(errors&&typeof errors==='object'){
-      try{return JSON.stringify(errors)}catch{}
-    }
-    return '';
-  }catch{return ''}
+ try{
+   const meta=data?.meta||{};
+   const candidates=[meta.error,meta.articlesOrPositions,data?.errors,data?.error].filter(v=>v!=null);
+   const details=candidates.flatMap(v=>flattenValidation(v)).filter(Boolean);
+   return details.join(' | ');
+ }catch{return ''}
 }
 async function getWisoToken(ownershipId){
  const key=String(process.env.WISO_API_KEY||'').trim(),secret=String(process.env.WISO_API_SECRET||'').trim();
@@ -47,29 +49,16 @@ async function getWisoToken(ownershipId){
  if(!ownershipId)throw new Error('OWNERSHIP_ID_MISSING');
  const basic=Buffer.from(`${key}:${secret}`).toString('base64');
  const requestBody={ownershipId:String(ownershipId).trim()};
- const r=await fetch(`${API_BASE}/auth/token`,{
-   method:'POST',
-   headers:{Authorization:`Basic ${basic}`,'Content-Type':'application/json',Accept:'application/json'},
-   body:JSON.stringify(requestBody)
- });
- const raw=await r.text();
- let data={};
- try{data=raw?JSON.parse(raw):{}}catch{data={raw}}
- if(!r.ok){
-   const detail=validationDetail(data);
-   console.error('WISO_TOKEN_VALIDATION', JSON.stringify({status:r.status,detail,metaError:data?.meta?.error||null,body:data}));
-   const err=new Error(detail||data?.message||data?.detail||`WISO Anmeldung fehlgeschlagen (${r.status}).`);
-   err.status=r.status;err.data=data;throw err;
- }
- const token=data?.Token||data?.token||data?.accessToken||data?.access_token;
- if(!token)throw new Error('WISO hat kein Zugriffstoken geliefert.');
- return token;
+ const r=await fetch(`${API_BASE}/auth/token`,{method:'POST',headers:{Authorization:`Basic ${basic}`,'Content-Type':'application/json',Accept:'application/json'},body:JSON.stringify(requestBody)});
+ const raw=await r.text();let data={};try{data=raw?JSON.parse(raw):{}}catch{data={raw}}
+ if(!r.ok){const detail=validationDetail(data);console.error('WISO_TOKEN_VALIDATION',JSON.stringify({status:r.status,detail,body:data}));const err=new Error(detail||data?.message||data?.detail||`WISO Anmeldung fehlgeschlagen (${r.status}).`);err.status=r.status;err.data=data;throw err;}
+ const token=data?.Token||data?.token||data?.accessToken||data?.access_token;if(!token)throw new Error('WISO hat kein Zugriffstoken geliefert.');return token;
 }
-async function wisoFetch(path,token,options={}){const r=await fetch(`${API_BASE}${path}`,{...options,headers:{Authorization:`Bearer ${token}`,Accept:'application/json',...(options.body?{'Content-Type':'application/json'}:{}),...(options.headers||{})}});const raw=await r.text();let data={};try{data=raw?JSON.parse(raw):{}}catch{data={raw}}if(!r.ok){const detail=validationDetail(data),err=new Error(detail||data?.message||data?.detail||`WISO API Fehler (${r.status}).`);err.status=r.status;err.data=data;throw err}return data}
+async function wisoFetch(path,token,options={}){const r=await fetch(`${API_BASE}${path}`,{...options,headers:{Authorization:`Bearer ${token}`,Accept:'application/json',...(options.body?{'Content-Type':'application/json'}:{}),...(options.headers||{})}});const raw=await r.text();let data={};try{data=raw?JSON.parse(raw):{}}catch{data={raw}}if(!r.ok){const detail=validationDetail(data);console.error('WISO_API_VALIDATION',JSON.stringify({path,status:r.status,detail,body:data}));const err=new Error(detail||data?.message||data?.detail||`WISO API Fehler (${r.status}).`);err.status=r.status;err.data=data;throw err}return data}
 function parseCity(value=''){const text=String(value).trim(),match=text.match(/^(\d{5})\s+(.+)$/);return match?{zipCode:match[1],city:match[2]}:{zipCode:'',city:text}}
 function customerPayload(c={}){const place=parseCity(c.city);return{email:c.email||undefined,phone:c.phone||undefined,customerDefaultAddress:{billingAddress:{kind:'company',companyName:c.name||'',firstName:c.contact_person||'',lastName:'',street:c.street||'',zipCode:place.zipCode,city:place.city,countryIso:'DE'}}}}
 function pickId(obj){return obj?.id||obj?.data?.id||obj?.customerId||obj?.orderId||obj?.invoiceId||obj?.data?.customerId||obj?.data?.orderId||obj?.data?.invoiceId||null}
 function normalizePositions(doc={}){const positions=Array.isArray(doc?.payload?.positions)?doc.payload.positions:Array.isArray(doc.positions)?doc.positions:[];return positions.filter(p=>String(p?.desc||p?.description||'').trim()||Number(p?.price||0)!==0).map((p,i)=>({description:String(p?.desc||p?.description||`Position ${i+1}`).trim(),quantity:Number(p?.qty??p?.quantity??1)||1,unitPrice:Number(p?.price??p?.unitPrice??0)||0,vatRate:Number(p?.vatRate??19)}))}
-async function createOrderAdaptive(token,customerId,doc){const positions=normalizePositions(doc);if(!positions.length)throw new Error('Die Rechnung enthält keine Positionen.');const subject=String(doc?.payload?.subject||doc?.title||doc?.document_number||'HandwerkPilot Rechnung').trim(),date=String(doc?.payload?.date||'').trim()||new Date().toISOString().slice(0,10),note=String(doc?.payload?.note||'').trim();const variants=[{customerId,subject,orderDate:date,note:note||undefined,positions:positions.map(p=>({description:p.description,quantity:p.quantity,price:p.unitPrice,vatRate:p.vatRate}))},{customerId,title:subject,date,items:positions.map(p=>({description:p.description,quantity:p.quantity,unitPrice:p.unitPrice,taxRate:p.vatRate}))},{customer:{id:customerId},subject,date,orderPositions:positions.map(p=>({text:p.description,quantity:p.quantity,unitPrice:p.unitPrice,vatPercent:p.vatRate}))}];let lastErr;for(const payload of variants){try{return await wisoFetch('/order/',token,{method:'POST',body:JSON.stringify(payload)})}catch(e){lastErr=e;if(e?.status===401||e?.status===403)throw e}}throw lastErr||new Error('WISO Auftrag konnte nicht erstellt werden.')}
+async function createOrderAdaptive(token,customerId,doc){const positions=normalizePositions(doc);if(!positions.length)throw new Error('Die Rechnung enthält keine Positionen.');const subject=String(doc?.payload?.subject||doc?.title||doc?.document_number||'HandwerkPilot Rechnung').trim(),date=String(doc?.payload?.date||'').trim()||new Date().toISOString().slice(0,10),note=String(doc?.payload?.note||'').trim();const variants=[{customerId,subject,orderDate:date,note:note||undefined,positions:positions.map(p=>({description:p.description,quantity:p.quantity,price:p.unitPrice,vatRate:p.vatRate}))},{customerId,title:subject,date,items:positions.map(p=>({description:p.description,quantity:p.quantity,unitPrice:p.unitPrice,taxRate:p.vatRate}))},{customer:{id:customerId},subject,date,orderPositions:positions.map(p=>({text:p.description,quantity:p.quantity,unitPrice:p.unitPrice,vatPercent:p.vatRate}))}];let lastErr;for(let i=0;i<variants.length;i++){const payload=variants[i];try{return await wisoFetch('/order/',token,{method:'POST',body:JSON.stringify(payload)})}catch(e){lastErr=e;console.error('WISO_ORDER_VARIANT',JSON.stringify({variant:i+1,payload,error:e?.data||e?.message}));if(e?.status===401||e?.status===403)throw e}}throw lastErr||new Error('WISO Auftrag konnte nicht erstellt werden.')}
 async function findOrCreateCustomer(token,customer={}){if(!customer?.name)throw new Error('Kundenname fehlt.');if(customer.wisoId)return customer.wisoId;if(customer.email){try{const found=await wisoFetch(`/customer?offset=0&limit=20&search=${encodeURIComponent(customer.email)}`,token),list=found?.data||found?.items||found?.customers||found?.rows||[],hit=Array.isArray(list)?list.find(x=>String(x?.email||'').toLowerCase()===String(customer.email).toLowerCase()):null,id=pickId(hit);if(id)return id}catch(_){}}const created=await wisoFetch('/customer/',token,{method:'POST',body:JSON.stringify(customerPayload(customer))}),id=pickId(created);if(!id)throw new Error('WISO hat nach dem Anlegen des Kunden keine Kunden-ID geliefert.');return id}
-export default async function handler(req,res){if(req.method!=='POST')return res.status(405).json({error:'Nur POST erlaubt.'});try{await verifyHandwerkPilotUser(req);const body=req.body||{},action=String(body.action||'').trim(),token=await getWisoToken(String(body.ownershipId||'').trim());if(action==='status'){const account=await wisoFetch('/setting/account',token);return res.status(200).json({connected:true,account})}if(action==='createCustomer'){const customerId=await findOrCreateCustomer(token,body.customer||{});return res.status(200).json({ok:true,customerId})}if(action==='syncInvoice'){if(body?.document?.document_type&&body.document.document_type!=='rechnung')return res.status(400).json({error:'Nur Rechnungen können an WISO übertragen werden.'});const customerId=await findOrCreateCustomer(token,body.customer||{}),order=await createOrderAdaptive(token,customerId,body.document||{}),orderId=pickId(order);if(!orderId)throw new Error('WISO hat keine Auftrags-ID zurückgegeben.');const invoice=await wisoFetch(`/order/${encodeURIComponent(orderId)}/invoice`,token,{method:'POST'}),invoiceId=pickId(invoice);return res.status(200).json({ok:true,customerId,orderId,invoiceId,order,invoice})}return res.status(400).json({error:'Unbekannte WISO-Aktion.'})}catch(e){const m=String(e?.message||e);if(m==='UNAUTHORIZED')return res.status(401).json({error:'Bitte erneut bei HandwerkPilot anmelden.'});if(m==='WISO_NOT_CONFIGURED')return res.status(503).json({error:'WISO_API_KEY und WISO_API_SECRET fehlen noch in Vercel.'});if(m==='OWNERSHIP_ID_MISSING')return res.status(400).json({error:'Bitte zuerst die WISO Ownership-ID eintragen.'});console.error('HandwerkPilot WISO',e);return res.status(502).json({error:m||'WISO-Verbindung fehlgeschlagen.',details:e?.data||undefined})}}
+export default async function handler(req,res){if(req.method!=='POST')return res.status(405).json({error:'Nur POST erlaubt.'});try{await verifyHandwerkPilotUser(req);const body=req.body||{},action=String(body.action||'').trim(),token=await getWisoToken(String(body.ownershipId||'').trim());if(action==='status'){const account=await wisoFetch('/setting/account',token);return res.status(200).json({connected:true,account})}if(action==='createCustomer'){const customerId=await findOrCreateCustomer(token,body.customer||{});return res.status(200).json({ok:true,customerId})}if(action==='syncInvoice'){if(body?.document?.document_type&&body.document.document_type!=='rechnung')return res.status(400).json({error:'Nur Rechnungen können an WISO übertragen werden.'});const customerId=await findOrCreateCustomer(token,body.customer||{}),order=await createOrderAdaptive(token,customerId,body.document||{}),orderId=pickId(order);if(!orderId)throw new Error('WISO hat keine Auftrags-ID zurückgegeben.');const invoice=await wisoFetch(`/order/${encodeURIComponent(orderId)}/invoice`,token,{method:'POST'}),invoiceId=pickId(invoice);return res.status(200).json({ok:true,customerId,orderId,invoiceId,order,invoice})}return res.status(400).json({error:'Unbekannte WISO-Aktion.'})}catch(e){const m=String(e?.message||e);if(m==='UNAUTHORIZED')return res.status(401).json({error:'Bitte erneut bei HandwerkPilot anmelden.'});if(m==='WISO_NOT_CONFIGURED')return res.status(503).json({error:'WISO_API_KEY und WISO_API_SECRET fehlen noch in Vercel.'});if(m==='OWNERSHIP_ID_MISSING')return res.status(400).json({error:'Bitte zuerst die WISO Ownership-ID eintragen.'});console.error('HandwerkPilot WISO Error:',e);return res.status(502).json({error:m||'WISO-Verbindung fehlgeschlagen.',details:e?.data||undefined})}}
