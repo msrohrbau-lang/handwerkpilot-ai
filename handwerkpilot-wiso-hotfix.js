@@ -47,4 +47,20 @@
       throw e;
     }
   };
+
+  function addBackButton(){
+    const box=document.getElementById('wiso');
+    if(!box||document.getElementById('hpAccountingBack'))return;
+    const btn=document.createElement('button');
+    btn.id='hpAccountingBack';
+    btn.className='btn secondary';
+    btn.style.cssText='margin:4px 0 10px 0;display:inline-flex;align-items:center;gap:6px';
+    btn.textContent='← Zurück zu Vorgänge';
+    btn.onclick=()=>{if(typeof showView==='function')showView('docs');window.scrollTo({top:0,behavior:'smooth'});};
+    box.insertBefore(btn,box.firstChild);
+  }
+
+  const oldShow=window.showView;
+  if(typeof oldShow==='function')window.showView=function(id){const r=oldShow.apply(this,arguments);if(id==='wiso')setTimeout(addBackButton,0);return r;};
+  setTimeout(addBackButton,100);
 })();
