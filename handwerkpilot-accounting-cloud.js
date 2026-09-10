@@ -1,6 +1,7 @@
 (()=>{
   const PROVIDER_KEY='hp_accounting_provider';
   const WISO_KEY='hp_wiso_ownership';
+  const FRESH_KEY='hp_wiso_callback_fresh';
   const META_PROVIDER='hp_accounting_provider';
   const META_WISO='hp_wiso_ownership';
   let syncing=false;
@@ -39,14 +40,17 @@
       const cloudWiso=String(meta[META_WISO]||'').trim();
       const localProvider=localStorage.getItem(PROVIDER_KEY)||'';
       const localWiso=(localStorage.getItem(WISO_KEY)||'').trim();
+      const fresh=(sessionStorage.getItem(FRESH_KEY)||'').trim();
 
-      // A fresh WISO callback on this device wins and is copied to the account.
-      if(localProvider==='wiso'&&localWiso&&(cloudWiso!==localWiso||cloudProvider!=='wiso')){
-        await saveCloud('wiso',localWiso);
+      // Only a WISO callback created in THIS browser session may overwrite
+      // an existing account-wide ownership ID. This prevents an old phone/
+      // tablet value from replacing a newer working WISO connection.
+      if(fresh && localProvider==='wiso' && localWiso===fresh){
+        if(cloudWiso!==fresh || cloudProvider!=='wiso') await saveCloud('wiso',fresh);
         return;
       }
 
-      // Otherwise restore the account setting on this device.
+      // The account-wide value is authoritative on normal page loads.
       if(cloudWiso){
         localStorage.setItem(WISO_KEY,cloudWiso);
         localStorage.setItem(PROVIDER_KEY,cloudProvider||'wiso');
@@ -55,11 +59,23 @@
         if((cloudProvider||'wiso')==='wiso'&&localProvider!=='wiso'&&typeof window.selectAccountingProvider==='function'){
           window.selectAccountingProvider('wiso');
         }
+      }else if(localProvider==='wiso'&&localWiso){
+        // One-time migration for older accounts that only had local storage.
+        await saveCloud('wiso',localWiso);
       }else if(cloudProvider){
         localStorage.setItem(PROVIDER_KEY,cloudProvider);
       }
     }finally{syncing=false}
   }
+
+  // Expose an explicit save helper for a successful WISO connection test.
+  window.hpSaveWisoToCloud=async function(ownershipId){
+    const id=String(ownershipId||localStorage.getItem(WISO_KEY)||'').trim();
+    if(!id)return false;
+    localStorage.setItem(PROVIDER_KEY,'wiso');
+    localStorage.setItem(WISO_KEY,id);
+    return saveCloud('wiso',id);
+  };
 
   const oldSave=window.saveAccountingSetup;
   if(typeof oldSave==='function'){
@@ -82,13 +98,12 @@
   if(typeof oldSelect==='function'){
     window.selectAccountingProvider=function(p){
       const result=oldSelect.apply(this,arguments);
-      const ownership=(localStorage.getItem(WISO_KEY)||'').trim();
-      saveCloud(p,p==='wiso'?ownership:'');
+      // Changing provider alone must never upload an old local WISO ID.
+      saveCloud(p,'');
       return result;
     };
   }
 
-  // Sync after the page/auth state settles and again whenever Supabase signs in.
   setTimeout(loadCloud,300);
   setTimeout(loadCloud,1500);
   try{
