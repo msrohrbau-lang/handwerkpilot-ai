@@ -24,13 +24,26 @@ async function verifyHandwerkPilotUser(req) {
 }
 function validationDetail(data){try{const errors=data?.meta?.error||data?.errors||data?.error;if(!Array.isArray(errors)||!errors.length)return '';return errors.map(e=>{if(!e||typeof e!=='object')return String(e||'');const field=e.path||e.field||e.param||e.property||'',msg=e.message||e.msg||e.error||e.reason||'';return[field,msg].filter(Boolean).join(': ')}).filter(Boolean).join(' | ')}catch{return ''}}
 async function getWisoToken(ownershipId){
- const key=String(process.env.WISO_API_KEY||'').trim(),secret=String(process.env.WISO_API_SECRET||'').trim();if(!key||!secret)throw new Error('WISO_NOT_CONFIGURED');if(!ownershipId)throw new Error('OWNERSHIP_ID_MISSING');
+ const key=String(process.env.WISO_API_KEY||'').trim(),secret=String(process.env.WISO_API_SECRET||'').trim();
+ if(!key||!secret)throw new Error('WISO_NOT_CONFIGURED');
+ if(!ownershipId)throw new Error('OWNERSHIP_ID_MISSING');
  const basic=Buffer.from(`${key}:${secret}`).toString('base64');
- // MeinBüro documents ownershipId as the JSON request body of POST /auth/token.
- // Keep string-body first because the OpenAPI schema represents the request value itself; object fallback covers older deployments.
- const bodies=[JSON.stringify(ownershipId),JSON.stringify({ownershipId}),JSON.stringify({ownershipID:ownershipId}),JSON.stringify({iid:ownershipId})]; let lastStatus=400,lastData={};
- for(const body of bodies){const r=await fetch(`${API_BASE}/auth/token`,{method:'POST',headers:{Authorization:`Basic ${basic}`,'Content-Type':'application/json',Accept:'application/json'},body});const data=await r.json().catch(()=>({}));if(r.ok){const token=data?.Token||data?.token||data?.accessToken||data?.access_token;if(!token)throw new Error('WISO hat kein Zugriffstoken geliefert.');return token;}lastStatus=r.status;lastData=data;}
- throw new Error(validationDetail(lastData)||lastData?.message||lastData?.detail||`WISO Anmeldung fehlgeschlagen (${lastStatus}).`);
+ const r=await fetch(`${API_BASE}/auth/token`,{
+   method:'POST',
+   headers:{Authorization:`Basic ${basic}`,'Content-Type':'application/json',Accept:'application/json'},
+   body:JSON.stringify({ownershipId:String(ownershipId).trim()})
+ });
+ const raw=await r.text();
+ let data={};
+ try{data=raw?JSON.parse(raw):{}}catch{data={raw}}
+ if(!r.ok){
+   console.error('WISO token request failed',{status:r.status,body:data});
+   const err=new Error(validationDetail(data)||data?.message||data?.detail||`WISO Anmeldung fehlgeschlagen (${r.status}).`);
+   err.status=r.status;err.data=data;throw err;
+ }
+ const token=data?.Token||data?.token||data?.accessToken||data?.access_token;
+ if(!token)throw new Error('WISO hat kein Zugriffstoken geliefert.');
+ return token;
 }
 async function wisoFetch(path,token,options={}){const r=await fetch(`${API_BASE}${path}`,{...options,headers:{Authorization:`Bearer ${token}`,Accept:'application/json',...(options.body?{'Content-Type':'application/json'}:{}),...(options.headers||{})}});const raw=await r.text();let data={};try{data=raw?JSON.parse(raw):{}}catch{data={raw}}if(!r.ok){const detail=validationDetail(data),err=new Error(detail||data?.message||data?.detail||`WISO API Fehler (${r.status}).`);err.status=r.status;err.data=data;throw err}return data}
 function parseCity(value=''){const text=String(value).trim(),match=text.match(/^(\d{5})\s+(.+)$/);return match?{zipCode:match[1],city:match[2]}:{zipCode:'',city:text}}
