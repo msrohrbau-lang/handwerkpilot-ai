@@ -22,23 +22,43 @@ async function verifyHandwerkPilotUser(req) {
  try{const key=crypto.createPublicKey({key:jwk,format:'jwk'}),data=Buffer.from(`${parts[0]}.${parts[1]}`),signature=fromB64Url(parts[2]);let valid=false;if(header.alg==='RS256')valid=crypto.verify('RSA-SHA256',data,key,signature);else if(header.alg==='ES256')valid=crypto.verify('sha256',data,{key,dsaEncoding:'ieee-p1363'},signature);if(!valid)throw new Error();}catch{throw new Error('UNAUTHORIZED');}
  return {id:payload.sub,email:payload.email||''};
 }
-function validationDetail(data){try{const errors=data?.meta?.error||data?.errors||data?.error;if(!Array.isArray(errors)||!errors.length)return '';return errors.map(e=>{if(!e||typeof e!=='object')return String(e||'');const field=e.path||e.field||e.param||e.property||'',msg=e.message||e.msg||e.error||e.reason||'';return[field,msg].filter(Boolean).join(': ')}).filter(Boolean).join(' | ')}catch{return ''}}
+function validationDetail(data){
+  try{
+    const errors=data?.meta?.error||data?.errors||data?.error;
+    if(Array.isArray(errors)&&errors.length){
+      return errors.map(e=>{
+        if(e==null)return '';
+        if(typeof e!=='object')return String(e);
+        const field=e.path||e.field||e.param||e.property||e.key||e.instancePath||'';
+        const msg=e.message||e.msg||e.error||e.reason||e.description||'';
+        if(field||msg)return [field,msg].filter(Boolean).join(': ');
+        try{return JSON.stringify(e)}catch{return String(e)}
+      }).filter(Boolean).join(' | ');
+    }
+    if(errors&&typeof errors==='object'){
+      try{return JSON.stringify(errors)}catch{}
+    }
+    return '';
+  }catch{return ''}
+}
 async function getWisoToken(ownershipId){
  const key=String(process.env.WISO_API_KEY||'').trim(),secret=String(process.env.WISO_API_SECRET||'').trim();
  if(!key||!secret)throw new Error('WISO_NOT_CONFIGURED');
  if(!ownershipId)throw new Error('OWNERSHIP_ID_MISSING');
  const basic=Buffer.from(`${key}:${secret}`).toString('base64');
+ const requestBody={ownershipId:String(ownershipId).trim()};
  const r=await fetch(`${API_BASE}/auth/token`,{
    method:'POST',
    headers:{Authorization:`Basic ${basic}`,'Content-Type':'application/json',Accept:'application/json'},
-   body:JSON.stringify({ownershipId:String(ownershipId).trim()})
+   body:JSON.stringify(requestBody)
  });
  const raw=await r.text();
  let data={};
  try{data=raw?JSON.parse(raw):{}}catch{data={raw}}
  if(!r.ok){
-   console.error('WISO token request failed',{status:r.status,body:data});
-   const err=new Error(validationDetail(data)||data?.message||data?.detail||`WISO Anmeldung fehlgeschlagen (${r.status}).`);
+   const detail=validationDetail(data);
+   console.error('WISO_TOKEN_VALIDATION', JSON.stringify({status:r.status,detail,metaError:data?.meta?.error||null,body:data}));
+   const err=new Error(detail||data?.message||data?.detail||`WISO Anmeldung fehlgeschlagen (${r.status}).`);
    err.status=r.status;err.data=data;throw err;
  }
  const token=data?.Token||data?.token||data?.accessToken||data?.access_token;
