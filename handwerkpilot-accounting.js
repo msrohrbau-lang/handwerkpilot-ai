@@ -79,8 +79,22 @@
     }catch(_){return ''}
   }
 
+  async function getCurrentWisoOwnership(){
+    let id=(localStorage.getItem(WISO_KEY)||'').trim();
+    try{
+      if(typeof sb!=='undefined'&&sb?.auth){
+        const {data,error}=await sb.auth.getUser();
+        if(!error){
+          const cloud=String(data?.user?.user_metadata?.hp_wiso_ownership||'').trim();
+          if(cloud){id=cloud;localStorage.setItem(WISO_KEY,cloud);localStorage.setItem(PROVIDER_KEY,'wiso');}
+        }
+      }
+    }catch(_){ }
+    return id;
+  }
+
   async function wisoCall(action,payload={}){
-    const ownershipId=(localStorage.getItem(WISO_KEY)||'').trim();
+    const ownershipId=await getCurrentWisoOwnership();
     if(!ownershipId)throw new Error('Bitte zuerst WISO MeinBüro unter Buchhaltung verbinden.');
     const token=await getFreshAccessToken();
     if(!token)throw new Error('Bitte erneut bei HandwerkPilot anmelden.');
@@ -98,7 +112,11 @@
         if(typeof window.lexwareCall!=='function')throw new Error('Lexware-Schnittstelle ist nicht geladen.');const d=await window.lexwareCall('profile');s.textContent='✓ Verbunden mit '+(d.profile?.companyName||d.profile?.userEmail||'Lexware Office');s.className='status ok';
       }else{
         const id=(document.getElementById('hpWisoOwnership')?.value||'').trim();if(id)localStorage.setItem(WISO_KEY,id);
-        await wisoCall('status');sessionStorage.removeItem(WISO_CALLBACK_KEY);s.textContent='✓ WISO MeinBüro verbunden. Rechnungsübertragung ist bereit.';s.className='status ok';
+        await wisoCall('status');
+        const current=await getCurrentWisoOwnership();
+        if(typeof window.hpSaveWisoToCloud==='function')await window.hpSaveWisoToCloud(current);
+        sessionStorage.removeItem(WISO_CALLBACK_KEY);
+        s.textContent='✓ WISO MeinBüro verbunden. Rechnungsübertragung ist bereit.';s.className='status ok';
       }
     }catch(e){s.textContent=e.message;s.className='status';}
   };
