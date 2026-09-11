@@ -15,16 +15,18 @@ body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans
   <div class="brand"><div class="mark">HP</div><div>HandwerkPilot</div></div>
 
   <section id="registerView">
-    <h1>Betrieb registrieren</h1>
-    <p class="sub">14 Tage kostenlos testen. Danach 29,90 € pro Monat.</p>
+    <h1 id="registerTitle">Betrieb registrieren</h1>
+    <p class="sub" id="registerSub">14 Tage kostenlos testen. Danach 29,90 € pro Monat.</p>
     <form method="POST" action="/api/register" enctype="application/x-www-form-urlencoded">
-      <label>Firmenname</label><input name="company" required autocomplete="organization">
+      <input type="hidden" name="invite" id="inviteToken">
+      <div id="companyField"><label>Firmenname</label><input name="company" id="companyInput" required autocomplete="organization"></div>
       <label>Vor- und Nachname</label><input name="name" required autocomplete="name">
       <label>E-Mail</label><input name="email" type="email" required autocomplete="email">
       <label>Passwort</label><input name="password" type="password" minlength="6" required autocomplete="new-password">
-      <button class="btn" type="submit">14 Tage kostenlos starten</button>
+      <button class="btn" id="registerButton" type="submit">14 Tage kostenlos starten</button>
     </form>
-    <p class="hint">Die Registrierung wird direkt an den HandwerkPilot-Server gesendet.</p>
+    <p class="hint" id="registerHint">Die Registrierung wird direkt an den HandwerkPilot-Server gesendet.</p>
+    <div id="registerError" class="status err"></div>
     <a class="back" href="/login">Zur Anmeldung</a>
   </section>
 
@@ -43,6 +45,18 @@ body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans
 (function(){
   const hash = new URLSearchParams(location.hash.replace(/^#/,''));
   const query = new URLSearchParams(location.search);
+  const invite=query.get('invite')||'';
+  const err=query.get('register_error')||'';
+  if(err) document.getElementById('registerError').textContent=err;
+  if(invite){
+    document.getElementById('inviteToken').value=invite;
+    document.getElementById('companyField').classList.add('hidden');
+    document.getElementById('companyInput').required=false;
+    document.getElementById('registerTitle').textContent='Mitarbeiterkonto erstellen';
+    document.getElementById('registerSub').textContent='Du wurdest zu einem HandwerkPilot-Betrieb eingeladen.';
+    document.getElementById('registerButton').textContent='Einladung annehmen';
+    document.getElementById('registerHint').textContent='Nach der Anmeldung siehst du nur die für dich freigegebenen Baustellen und Funktionen.';
+  }
   const isRecovery = hash.get('type') === 'recovery' || query.get('type') === 'recovery' || !!hash.get('access_token');
   if(!isRecovery) return;
 
@@ -59,46 +73,25 @@ body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans
       const cfg = await cfgRes.json();
       if(!cfg.supabaseUrl || !cfg.supabaseAnonKey) throw new Error('Cloud-Konfiguration fehlt.');
       client = supabase.createClient(cfg.supabaseUrl,cfg.supabaseAnonKey,{auth:{detectSessionInUrl:true,persistSession:true}});
-
       const access_token = hash.get('access_token');
       const refresh_token = hash.get('refresh_token');
-      if(access_token && refresh_token){
-        const {error} = await client.auth.setSession({access_token,refresh_token});
-        if(error) throw error;
-      }
-
+      if(access_token && refresh_token){const {error} = await client.auth.setSession({access_token,refresh_token});if(error) throw error;}
       const {data} = await client.auth.getSession();
-      if(!data.session){
-        status.className='status err';
-        status.textContent='Der Reset-Link ist abgelaufen oder ungültig. Bitte eine neue Passwort-Mail anfordern.';
-        button.disabled=true;
-      } else {
-        status.className='status';
-        status.textContent='Reset-Link erkannt. Du kannst jetzt ein neues Passwort setzen.';
-      }
-    }catch(e){
-      status.className='status err';
-      status.textContent='Reset konnte nicht vorbereitet werden: '+(e.message||e);
-      button.disabled=true;
-    }
+      if(!data.session){status.className='status err';status.textContent='Der Reset-Link ist abgelaufen oder ungültig. Bitte eine neue Passwort-Mail anfordern.';button.disabled=true;}
+      else {status.className='status';status.textContent='Reset-Link erkannt. Du kannst jetzt ein neues Passwort setzen.';}
+    }catch(e){status.className='status err';status.textContent='Reset konnte nicht vorbereitet werden: '+(e.message||e);button.disabled=true;}
   }
 
   button.addEventListener('click',async()=>{
-    const p1=document.getElementById('newPassword').value;
-    const p2=document.getElementById('newPassword2').value;
+    const p1=document.getElementById('newPassword').value,p2=document.getElementById('newPassword2').value;
     if(p1.length<6){status.className='status err';status.textContent='Das Passwort muss mindestens 6 Zeichen haben.';return;}
     if(p1!==p2){status.className='status err';status.textContent='Die beiden Passwörter stimmen nicht überein.';return;}
     if(!client){status.className='status err';status.textContent='Verbindung noch nicht bereit.';return;}
     button.disabled=true; status.className='status'; status.textContent='Passwort wird gespeichert …';
     const {error}=await client.auth.updateUser({password:p1});
     if(error){button.disabled=false;status.className='status err';status.textContent='Passwort konnte nicht gespeichert werden: '+error.message;return;}
-    await client.auth.signOut();
-    status.className='status ok';
-    status.textContent='Passwort gespeichert. Du wirst zur Anmeldung weitergeleitet …';
-    history.replaceState({},'',location.pathname);
-    setTimeout(()=>location.href='/login?reset=success',1200);
+    await client.auth.signOut();status.className='status ok';status.textContent='Passwort gespeichert. Du wirst zur Anmeldung weitergeleitet …';history.replaceState({},'',location.pathname);setTimeout(()=>location.href='/login?reset=success',1200);
   });
-
   prepare();
 })();
 </script>
