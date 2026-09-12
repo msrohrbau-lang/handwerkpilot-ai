@@ -1,40 +1,24 @@
 (()=>{
 const isEmployee=()=>{try{return String(profile?.role||'')==='employee'}catch{return false}};
+const esc2=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]));
 let reloading=false;
-let originalRender=null;
 const cacheKey=()=>`hp_employee_bautage_cache_${session?.user?.id||'user'}`;
 function getCache(){try{const x=JSON.parse(localStorage.getItem(cacheKey())||'[]');return Array.isArray(x)?x:[]}catch{return []}}
 function saveCache(rows){try{localStorage.setItem(cacheKey(),JSON.stringify(rows||[]))}catch{}}
 function mergeReports(a,b){const m=new Map();[...(a||[]),...(b||[])].forEach(x=>{if(x?.id)m.set(String(x.id),x)});return [...m.values()].sort((x,y)=>String(y.payload?.date||y.created_at||'').localeCompare(String(x.payload?.date||x.created_at||'')))}
 function mergeIntoDocuments(rows){const other=(documents||[]).filter(d=>d.document_type!=='bautagesbericht');const live=(documents||[]).filter(d=>d.document_type==='bautagesbericht');documents=[...other,...mergeReports(rows,live)]}
-async function reloadOwnReports(){
-  if(!isEmployee()||!session?.user?.id||!sb||reloading)return;
-  reloading=true;
-  try{
-    const cached=getCache();
-    if(cached.length){mergeIntoDocuments(cached);if(originalRender)originalRender()}
-    const {data,error}=await sb.from('documents').select('*').eq('document_type','bautagesbericht').order('created_at',{ascending:false});
-    if(error){console.warn('Bautagesberichte konnten nicht neu geladen werden',error);return}
-    const merged=mergeReports(cached,data||[]);
-    if(merged.length)saveCache(merged);
-    mergeIntoDocuments(merged);
-    if(originalRender)originalRender();
-  }finally{reloading=false}
+function reportHtml(d){const p=d.payload||{},date=p.date?new Date(p.date+'T12:00:00').toLocaleDateString('de-DE'):'';return `<div class="item" style="margin-top:9px"><div class="row"><div><strong>${esc2(d.document_number||'Bautagesbericht')}</strong><div class="tiny">${esc2(p.site||'Baustelle')} · ${esc2(date)}</div></div><span class="pill">Gespeichert</span></div>${p.work?`<div style="margin-top:8px">${esc2(p.work)}</div>`:''}<div class="actions"><button class="btn secondary" onclick="openBautagesbericht('${esc2(d.id)}')">✏️ Öffnen</button>${typeof hpPrintBautagesbericht==='function'?`<button class="btn secondary" onclick="hpPrintBautagesbericht('${esc2(d.id)}')">📄 PDF</button>`:''}</div></div>`}
+function renderDirect(rows){if(!isEmployee())return;const list=mergeReports(rows||[],getCache());saveCache(list);mergeIntoDocuments(list);
+  const projectSec=document.getElementById('projects');if(projectSec){let box=document.getElementById('hpEmployeeReports');if(!box){box=document.createElement('div');box.id='hpEmployeeReports';box.innerHTML='<h3 style="margin:18px 0 8px">Meine Bautagesberichte</h3><div id="hpEmployeeReportList" class="list"></div>';projectSec.appendChild(box)}const l=document.getElementById('hpEmployeeReportList');if(l)l.innerHTML=list.length?list.map(reportHtml).join(''):'<div class="status">Noch keine Bautagesberichte.</div>'}
+  const bautage=document.getElementById('hpReportList');if(bautage)bautage.innerHTML=list.length?list.map(reportHtml).join(''):'<div class="status">Noch keine Bautagesberichte.</div>';
 }
+async function reloadOwnReports(){if(!isEmployee()||!session?.user?.id||!sb||reloading)return;reloading=true;try{const cached=getCache();if(cached.length)renderDirect(cached);const {data,error}=await sb.from('documents').select('*').eq('document_type','bautagesbericht').order('created_at',{ascending:false});if(error){console.warn('Bautagesberichte konnten nicht geladen werden',error);renderDirect(cached);return}const merged=mergeReports(cached,data||[]);renderDirect(merged)}finally{reloading=false}}
 window.hpReloadOwnReports=reloadOwnReports;
-function rememberCurrentReports(){if(!isEmployee())return;const now=(documents||[]).filter(d=>d.document_type==='bautagesbericht');const merged=mergeReports(getCache(),now);if(merged.length)saveCache(merged)}
-function restoreCache(){if(!isEmployee())return;const cached=getCache();if(!cached.length)return;mergeIntoDocuments(cached);if(originalRender)originalRender()}
-function patchReportForm(){const t=document.getElementById('btTemp');if(t){t.type='text';t.inputMode='text';t.placeholder='z. B. -5';t.setAttribute('autocomplete','off')}const f=document.querySelector('#modalBody input[type="file"]');if(f){f.removeAttribute('capture');f.setAttribute('accept','image/*,application/pdf,.pdf');f.multiple=true}}
-function refreshEmployeeReports(){if(!isEmployee())return;restoreCache();setTimeout(reloadOwnReports,20)}
-function install(){
-  originalRender=window.renderBautagesberichte||null;
-  const oldOpen=window.openBautagesbericht;if(oldOpen&&!oldOpen._hpBautageFix){const op=function(id=''){oldOpen(id);setTimeout(patchReportForm,40);setTimeout(patchReportForm,180)};op._hpBautageFix=1;window.openBautagesbericht=op}
-  const oldSave=window.saveBautagesbericht;if(oldSave&&!oldSave._hpKeepEmployee){const sv=async function(id=''){const r=await oldSave(id);setTimeout(()=>{rememberCurrentReports();restoreCache()},80);setTimeout(refreshEmployeeReports,600);return r};sv._hpKeepEmployee=1;window.saveBautagesbericht=sv}
-  const oldShow=window.showView;if(oldShow&&!oldShow._hpBautagePersistence){const sh=function(id){const r=oldShow(id);if((id==='bautage'||id==='projects')&&isEmployee())refreshEmployeeReports();return r};sh._hpBautagePersistence=1;window.showView=sh}
-  refreshEmployeeReports();
-  window.addEventListener('pageshow',refreshEmployeeReports);
-  window.addEventListener('focus',refreshEmployeeReports);
-  document.addEventListener('visibilitychange',()=>{if(!document.hidden)refreshEmployeeReports()});
-}
-setTimeout(install,950);
+function patchReportForm(){const t=document.getElementById('btTemp');if(t){t.type='text';t.inputMode='text';t.placeholder='z. B. -5'}const f=document.querySelector('#modalBody input[type="file"]');if(f){f.removeAttribute('capture');f.setAttribute('accept','image/*,application/pdf,.pdf');f.multiple=true}}
+function refresh(){if(!isEmployee())return;renderDirect(getCache());setTimeout(reloadOwnReports,30)}
+function install(){const oldOpen=window.openBautagesbericht;if(oldOpen&&!oldOpen._hpBautageFix){const op=function(id=''){oldOpen(id);setTimeout(patchReportForm,40);setTimeout(patchReportForm,180)};op._hpBautageFix=1;window.openBautagesbericht=op}
+const oldSave=window.saveBautagesbericht;if(oldSave&&!oldSave._hpKeepEmployee){const sv=async function(id=''){const r=await oldSave(id);setTimeout(refresh,300);setTimeout(refresh,1000);return r};sv._hpKeepEmployee=1;window.saveBautagesbericht=sv}
+const oldShow=window.showView;if(oldShow&&!oldShow._hpReportHistory){const sh=function(id){const r=oldShow(id);if(isEmployee()&&(id==='projects'||id==='bautage'))setTimeout(refresh,60);return r};sh._hpReportHistory=1;window.showView=sh}
+refresh();window.addEventListener('pageshow',refresh);window.addEventListener('focus',refresh);document.addEventListener('visibilitychange',()=>{if(!document.hidden)refresh()});setInterval(()=>{if(isEmployee()&&(document.getElementById('projects')&&!document.getElementById('projects').classList.contains('hidden')))refresh()},5000)}
+setTimeout(install,1100);
 })();
