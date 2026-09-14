@@ -13,7 +13,7 @@ async function handleSupport(req, res) {
   const esc = value => String(value).replace(/[&<>"']/g, char => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;', "'":'&#039;' }[char]));
   const mail = await fetch('https://api.resend.com/emails', {
     method: 'POST', headers: { Authorization: 'Bearer ' + resendKey, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ from: 'HandwerkPilot Support <hallo@handwerkpilot.app>', to: ['schmidt@ms-rohrbau.de'], reply_to: email, subject: '[HandwerkPilot Support] ' + subject,
+    body: JSON.stringify({ from: 'HandwerkPilot Support <hallo@handwerkpilot.app>', to: ['info@ms-rohrbau.de'], reply_to: email, subject: '[HandwerkPilot Support] ' + subject,
       text: 'Neue Supportanfrage\n\nVon: ' + name + ' <' + email + '>\nBetreff: ' + subject + '\n\n' + message,
       html: '<h2>Neue Supportanfrage</h2><p><b>Von:</b> ' + esc(name) + ' &lt;' + esc(email) + '&gt;</p><p><b>Betreff:</b> ' + esc(subject) + '</p><p style="white-space:pre-wrap">' + esc(message) + '</p>' })
   });
