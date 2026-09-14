@@ -3,7 +3,8 @@ module.exports = async function handler(req, res) {
   try {
     const url='https://dbaiwcqoigqgknmtctwl.supabase.co';
     const key='sb_publishable_8irMEHCYLPzCmMljWAUCaA_L7xJSZlr';
-    const paymentLink='https://buy.stripe.com/5kQeVf0JX43h7YIg4KcbC02';
+    const stripeSecret=String(process.env.STRIPE_SECRET_KEY||'').trim();
+    const stripePrice='price_1UFVCORu87phJbODJLzrSjmd';
     let body=req.body||{}; if(typeof body==='string') body=Object.fromEntries(new URLSearchParams(body));
     const password=String(body.password||'');
     const company=String(body.company||'').trim();
@@ -38,8 +39,25 @@ module.exports = async function handler(req, res) {
         }catch(e){console.error('welcome email',e)}
       } else console.warn('RESEND_API_KEY missing; welcome email skipped');
 
-      // Collect the payment method securely at Stripe. Nothing is charged during the 30-day trial.
-      return res.redirect(303,paymentLink+'?prefilled_email='+encodeURIComponent(email));
+      // Collect payment details using the current HandwerkPilot Solo price. Nothing is charged during the 30-day trial.
+      if (!stripeSecret.startsWith('sk_')) return res.redirect(303,'/login?registered=1');
+      const params = new URLSearchParams();
+      params.set('mode','subscription');
+      params.set('line_items[0][price]',stripePrice);
+      params.set('line_items[0][quantity]','1');
+      params.set('success_url','https://handwerkpilot-ai.vercel.app/?checkout=success&session_id={CHECKOUT_SESSION_ID}');
+      params.set('cancel_url','https://handwerkpilot-ai.vercel.app/register-v2.html?checkout=cancel');
+      params.set('customer_email',email);
+      params.set('payment_method_collection','always');
+      params.set('subscription_data[trial_period_days]','30');
+      params.set('subscription_data[trial_settings][end_behavior][missing_payment_method]','cancel');
+      const checkout = await fetch('https://api.stripe.com/v1/checkout/sessions',{method:'POST',headers:{Authorization:'Bearer '+stripeSecret,'Content-Type':'application/x-www-form-urlencoded'},body:params.toString()});
+      const checkoutData = await checkout.json().catch(()=>({}));
+      if (!checkout.ok || !checkoutData?.url) {
+        console.error('Stripe checkout',checkoutData?.error||checkoutData);
+        return res.redirect(303,'/login?registered=1');
+      }
+      return res.redirect(303,checkoutData.url);
     }
     return res.redirect(303,'/login?joined=1&phone='+encodeURIComponent(phone));
   }catch(e){return res.redirect(303,'/register-v2.html?register_error='+encodeURIComponent(e.message||'Serverfehler'));}
