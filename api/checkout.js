@@ -1,9 +1,37 @@
+async function ensureGermanVatTaxRate(stripeSecret) {
+  const list = await fetch('https://api.stripe.com/v1/tax_rates?active=true&limit=100', {
+    headers: { Authorization: `Bearer ${stripeSecret}` }
+  });
+  const existing = await list.json().catch(() => ({}));
+  const found = Array.isArray(existing?.data) && existing.data.find(rate =>
+    rate?.active && rate?.inclusive === false && Number(rate?.percentage) === 19 &&
+    rate?.country === 'DE' && rate?.display_name === 'Umsatzsteuer'
+  );
+  if (found?.id) return found.id;
+
+  const body = new URLSearchParams();
+  body.set('display_name', 'Umsatzsteuer');
+  body.set('description', '19 % deutsche Umsatzsteuer');
+  body.set('jurisdiction', 'DE');
+  body.set('country', 'DE');
+  body.set('percentage', '19');
+  body.set('inclusive', 'false');
+  const created = await fetch('https://api.stripe.com/v1/tax_rates', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${stripeSecret}`, 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: body.toString()
+  });
+  const data = await created.json().catch(() => ({}));
+  if (!created.ok || !data?.id) throw new Error('Umsatzsteuersatz konnte nicht eingerichtet werden.');
+  return data.id;
+}
+
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
   try {
     const stripeSecret = String(process.env.STRIPE_SECRET_KEY || '').trim();
-    const price = 'price_1UFVCORu87phJbODJLzrSjmd';
+    const price = 'price_1UFYJjRu87phJbODNTJk5hPw';
     const supabaseUrl = String(process.env.SUPABASE_URL || 'https://dbaiwcqoigqgknmtctwl.supabase.co').trim();
     const supabaseAnonKey = String(process.env.SUPABASE_ANON_KEY || 'sb_publishable_8irMEHCYLPzCmMljWAUCaA_L7xJSZlr').trim();
 
@@ -20,6 +48,8 @@ export default async function handler(req, res) {
     if (!stripeSecret.startsWith('sk_')) {
       return res.status(503).json({ error: 'Zahlungsdienst ist noch nicht eingerichtet. Bitte später erneut versuchen.' });
     }
+
+    const taxRateId = await ensureGermanVatTaxRate(stripeSecret);
 
     let organizationId = '';
     try {
@@ -43,6 +73,7 @@ export default async function handler(req, res) {
     params.set('customer_email', user.email);
     params.set('payment_method_collection', 'always');
     params.set('subscription_data[trial_period_days]', '30');
+    params.set('subscription_data[default_tax_rates][0]', taxRateId);
     params.set('subscription_data[trial_settings][end_behavior][missing_payment_method]', 'cancel');
     if (organizationId) {
       params.set('client_reference_id', organizationId);
