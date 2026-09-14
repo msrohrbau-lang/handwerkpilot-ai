@@ -3,7 +3,7 @@ module.exports = function handler(req, res) {
   res.status(200).json({
     supabaseUrl: 'https://dbaiwcqoigqgknmtctwl.supabase.co',
     supabaseAnonKey: 'sb_publishable_8irMEHCYLPzCmMljWAUCaA_L7xJSZlr',
-    stripeCheckoutUrl: 'https://buy.stripe.com/cNicN7fERfLZ92M19QcbC01',
+    stripeCheckoutUrl: '',
     stripeMode: 'live',
     version: '1.3.2'
   });
