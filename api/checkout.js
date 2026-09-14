@@ -1,8 +1,6 @@
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
-  const fallbackUrl = 'https://buy.stripe.com/5kQeVf0JX43h7YIg4KcbC02';
-
   try {
     const stripeSecret = String(process.env.STRIPE_SECRET_KEY || '').trim();
     const price = 'price_1UFVCORu87phJbODJLzrSjmd';
@@ -20,7 +18,7 @@ export default async function handler(req, res) {
     if (!userResp.ok || !user?.id || !user?.email) return res.status(401).json({ error: 'Anmeldung ist abgelaufen. Bitte erneut anmelden.' });
 
     if (!stripeSecret.startsWith('sk_')) {
-      return res.status(200).json({ url: fallbackUrl + '?prefilled_email=' + encodeURIComponent(user.email), fallback: true });
+      return res.status(503).json({ error: 'Zahlungsdienst ist noch nicht eingerichtet. Bitte später erneut versuchen.' });
     }
 
     let organizationId = '';
@@ -63,12 +61,12 @@ export default async function handler(req, res) {
 
     if (!r.ok || !data?.url) {
       console.error('Stripe checkout error', { status: r.status, type: data?.error?.type, code: data?.error?.code, message: data?.error?.message });
-      return res.status(200).json({ url: fallbackUrl + '?prefilled_email=' + encodeURIComponent(user.email), fallback: true });
+      return res.status(502).json({ error: 'Checkout konnte nicht gestartet werden. Bitte später erneut versuchen.' });
     }
 
     return res.status(200).json({ url: data.url });
   } catch (e) {
     console.error('checkout', e);
-    return res.status(200).json({ url: fallbackUrl, fallback: true });
+    return res.status(500).json({ error: 'Checkout konnte nicht gestartet werden. Bitte später erneut versuchen.' });
   }
 }
