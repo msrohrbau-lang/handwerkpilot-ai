@@ -3,6 +3,7 @@
     { "source": "/", "destination": "/start.html", "permanent": false }
   ],
   "rewrites": [
-    { "source": "/login", "destination": "/index.html" }
+    { "source": "/login", "destination": "/index.html" },
+    { "source": "/api/support", "destination": "/api/portal?mode=support" }
   ]
 }
