@@ -7,3 +7,4 @@
     { "source": "/api/support", "destination": "/api/portal?mode=support" }
   ]
 }
+
