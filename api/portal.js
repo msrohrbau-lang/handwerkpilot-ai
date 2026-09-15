@@ -94,6 +94,9 @@ export default async function handler(req, res) {
     const { response: stripeResp, data } = await stripeForm('/v1/billing_portal/sessions', stripeSecret, params);
     if (!stripeResp.ok || !data?.url) {
       console.error('Stripe portal error', data?.error || data);
+      if (data?.error?.code === 'resource_missing' && /customer/i.test(String(data?.error?.message || ''))) {
+        return res.status(409).json({ code: 'NO_LIVE_CUSTOMER', error: 'Für dieses Konto gibt es noch kein Live-Abo. Bitte starte zuerst die kostenlose Testphase.' });
+      }
       return res.status(stripeResp.status || 500).json({ error: data?.error?.message || 'Abo-Verwaltung konnte nicht geöffnet werden.' });
     }
     return res.status(200).json({ url: data.url });
