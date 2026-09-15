@@ -45,7 +45,7 @@ export default async function handler(req, res) {
     const user = await userResp.json();
     if (!userResp.ok || !user?.id || !user?.email) return res.status(401).json({ error: 'Anmeldung ist abgelaufen. Bitte erneut anmelden.' });
 
-    if (!stripeSecret.startsWith('sk_')) {
+    if (!(stripeSecret.startsWith('sk_') || stripeSecret.startsWith('rk_'))) {
       return res.status(503).json({ error: 'Zahlungsdienst ist noch nicht eingerichtet. Bitte später erneut versuchen.' });
     }
 
