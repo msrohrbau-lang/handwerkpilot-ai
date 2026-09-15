@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Neu anmelden – HandwerkPilot</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    *{box-sizing:border-box}body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;background:#f3f5f7;color:#142033}.wrap{max-width:620px;margin:50px auto;padding:0 18px}.card{background:#fff;border-radius:24px;padding:24px;box-shadow:0 8px 26px rgba(15,23,42,.08)}.brand{font-size:22px;font-weight:950;margin-bottom:20px}.btn{border:0;border-radius:13px;padding:14px 15px;font-size:16px;font-weight:850;cursor:pointer;width:100%;margin-top:14px}.primary{background:#2563eb;color:#fff}.secondary{background:#eef2f6;color:#142033}.status{font-size:14px;color:#667085;margin-top:14px;line-height:1.5}input{width:100%;border:1px solid #dbe2ea;border-radius:13px;padding:13px;font-size:16px;margin-top:6px}label{display:block;font-size:14px;font-weight:800;margin-top:14px}.links{text-align:center;margin-top:22px;font-size:13px}.links a{color:#667085;margin:0 7px}
+  </style>
+</head>
+<body>
+  <main class="wrap">
+    <section class="card">
+      <div class="brand">HP · HandwerkPilot</div>
+      <h1>Neu anmelden</h1>
+      <p>Bitte melde dich einmal neu an. Diese Seite verwendet absichtlich keine gespeicherte, alte Sitzung.</p>
+      <div id="login">
+        <label for="email">E-Mail</label>
+        <input id="email" type="email" autocomplete="email">
+        <label for="password">Passwort</label>
+        <input id="password" type="password" autocomplete="current-password">
+        <button class="btn primary" onclick="login()">Anmelden</button>
+      </div>
+      <div id="account" style="display:none">
+        <p id="user"></p>
+        <button class="btn primary" onclick="openPortal()">Abo verwalten / kündigen</button>
+        <button class="btn secondary" onclick="location.href='/'">Zurück zu HandwerkPilot</button>
+      </div>
+      <p id="status" class="status"></p>
+    </section>
+    <p class="links"><a href="/impressum.html">Impressum</a><a href="/datenschutz.html">Datenschutz</a><a href="/agb.html">AGB</a></p>
+  </main>
+  <script>
+    let sb, session;
+    const $=id=>document.getElementById(id);
+    async function init(){
+      try{
+        const c=await (await fetch('/api/config',{cache:'no-store'})).json();
+        sb=supabase.createClient(c.supabaseUrl,c.supabaseAnonKey,{auth:{persistSession:false,autoRefreshToken:false,detectSessionInUrl:false}});
+        $('status').textContent='Bitte E-Mail und Passwort eingeben.';
+      }catch(e){$('status').textContent='Anmeldung konnte nicht vorbereitet werden: '+e.message}
+    }
+    async function login(){
+      if(!sb)return;
+      $('status').textContent='Anmeldung wird geprüft …';
+      const {data,error}=await sb.auth.signInWithPassword({email:$('email').value.trim(),password:$('password').value});
+      if(error){$('status').textContent='Anmeldung fehlgeschlagen: '+error.message;return}
+      session=data.session;
+      $('login').style.display='none';$('account').style.display='block';
+      $('user').textContent='Angemeldet als '+session.user.email;
+      $('status').textContent='';
+    }
+    async function openPortal(){
+      try{
+        $('status').textContent='Abo-Verwaltung wird geöffnet …';
+        const r=await fetch('/api/portal',{method:'POST',headers:{Authorization:'Bearer '+session.access_token}});
+        const d=await r.json();
+        if(!r.ok||!d.url)throw new Error(d.error||'Abo-Verwaltung konnte nicht geöffnet werden.');
+        location.href=d.url;
+      }catch(e){$('status').textContent=e.message}
+    }
+    init();
+  </script>
+</body>
+</html>
