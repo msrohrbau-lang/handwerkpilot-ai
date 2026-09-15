@@ -68,7 +68,7 @@ module.exports = async function handler(req, res) {
       } else console.warn('RESEND_API_KEY missing; welcome email skipped');
 
       // Collect payment details using the current HandwerkPilot Solo price. Nothing is charged during the 30-day trial.
-      if (!stripeSecret.startsWith('sk_')) return res.redirect(303,'/login?registered=1');
+      if (!(stripeSecret.startsWith('sk_') || stripeSecret.startsWith('rk_'))) return res.redirect(303,'/login?registered=1');
       const taxRateId=await ensureGermanVatTaxRate(stripeSecret);
       const params = new URLSearchParams();
       params.set('mode','subscription');
