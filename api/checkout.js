@@ -33,7 +33,7 @@ export default async function handler(req, res) {
     const stripeSecret = String(process.env.STRIPE_SECRET_KEY || '').trim();
     const price = 'price_1UFYJjRu87phJbODNTJk5hPw';
     const supabaseUrl = 'https://dbaiwcqoigqgknmtctwl.supabase.co';
-    const supabaseAnonKey = String(process.env.SUPABASE_ANON_KEY || 'sb_publishable_8irMEHCYLPzCmMljWAUCaA_L7xJSZlr').replace(/[\s"]/g, '');
+    const supabaseAnonKey = 'sb_publishable_8irMEHCYLPzCmMljWAUCaA_L7xJSZlr';
 
     const auth = String(req.headers.authorization || '');
     if (!auth.startsWith('Bearer ')) return res.status(401).json({ error: 'Bitte erneut anmelden.' });
