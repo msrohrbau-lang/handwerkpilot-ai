@@ -43,7 +43,7 @@ export default async function handler(req, res) {
     const stripeSecret = String(process.env.STRIPE_SECRET_KEY || '').trim();
     const supabaseUrl = String(process.env.SUPABASE_URL || 'https://dbaiwcqoigqgknmtctwl.supabase.co').trim();
     const supabaseAnonKey = String(process.env.SUPABASE_ANON_KEY || 'sb_publishable_8irMEHCYLPzCmMljWAUCaA_L7xJSZlr').trim();
-    if (!stripeSecret.startsWith('sk_')) return res.status(500).json({ error: 'Stripe ist nicht vollständig konfiguriert.' });
+    if (!(stripeSecret.startsWith('sk_') || stripeSecret.startsWith('rk_'))) return res.status(500).json({ error: 'Stripe ist nicht vollständig konfiguriert.' });
 
     const auth = String(req.headers.authorization || '');
     if (!auth.startsWith('Bearer ')) return res.status(401).json({ error: 'Bitte erneut anmelden.' });
