@@ -32,7 +32,7 @@ export default async function handler(req, res) {
   try {
     const stripeSecret = String(process.env.STRIPE_SECRET_KEY || '').trim();
     const price = 'price_1UFYJjRu87phJbODNTJk5hPw';
-    const supabaseUrl = String(process.env.SUPABASE_URL || 'https://dbaiwcqoigqgknmtctwl.supabase.co').trim();
+    const supabaseUrl = String(process.env.SUPABASE_URL || 'https://dbaiwcqoigqgknmtctwl.supabase.co').replace(/\s+/g, '');
     const supabaseAnonKey = String(process.env.SUPABASE_ANON_KEY || 'sb_publishable_8irMEHCYLPzCmMljWAUCaA_L7xJSZlr').trim();
 
     const auth = String(req.headers.authorization || '');
