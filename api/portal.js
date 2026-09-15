@@ -41,7 +41,7 @@ export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
   try {
     const stripeSecret = String(process.env.STRIPE_SECRET_KEY || '').trim();
-    const supabaseUrl = String(process.env.SUPABASE_URL || 'https://dbaiwcqoigqgknmtctwl.supabase.co').replace(/\s+/g, '');
+    const supabaseUrl = 'https://dbaiwcqoigqgknmtctwl.supabase.co';
     const supabaseAnonKey = String(process.env.SUPABASE_ANON_KEY || 'sb_publishable_8irMEHCYLPzCmMljWAUCaA_L7xJSZlr').replace(/[\s"]/g, '');
     if (!(stripeSecret.startsWith('sk_') || stripeSecret.startsWith('rk_'))) return res.status(500).json({ error: 'Stripe ist nicht vollständig konfiguriert.' });
 
