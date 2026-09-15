@@ -63,6 +63,8 @@ export default async function handler(req, res) {
     const origin = 'https://handwerkpilot-ai.vercel.app';
     const params = new URLSearchParams();
     params.set('mode', 'subscription');
+    params.set('branding_settings[display_name]', 'HandwerkPilot');
+    params.set('integration_identifier', 'handwerkpilot_qmztrhka');
     params.set('line_items[0][price]', price);
     params.set('line_items[0][quantity]', '1');
     params.set('success_url', `${origin}/?checkout=success&session_id={CHECKOUT_SESSION_ID}`);
