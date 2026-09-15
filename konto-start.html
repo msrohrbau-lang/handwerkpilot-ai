@@ -25,6 +25,7 @@
       <div id="account" style="display:none">
         <p id="user"></p>
         <button class="btn primary" onclick="openPortal()">Abo verwalten / kündigen</button>
+        <button id="startTrial" class="btn primary" style="display:none" onclick="startTrial()">30 Tage kostenlos starten</button>
         <button class="btn secondary" onclick="location.href='/'">Zurück zu HandwerkPilot</button>
       </div>
       <p id="status" class="status"></p>
@@ -57,6 +58,18 @@
         const r=await fetch('/api/portal',{method:'POST',headers:{Authorization:'Bearer '+session.access_token}});
         const d=await r.json();
         if(!r.ok||!d.url)throw new Error(d.error||'Abo-Verwaltung konnte nicht geöffnet werden.');
+        location.href=d.url;
+      }catch(e){
+        $('status').textContent=e.message;
+        if(String(e.message).includes('noch kein Live-Abo')) $('startTrial').style.display='block';
+      }
+    }
+    async function startTrial(){
+      try{
+        $('status').textContent='Stripe-Checkout wird geöffnet …';
+        const r=await fetch('/api/checkout',{method:'POST',headers:{Authorization:'Bearer '+session.access_token}});
+        const d=await r.json();
+        if(!r.ok||!d.url) throw new Error(d.error||'Checkout konnte nicht gestartet werden.');
         location.href=d.url;
       }catch(e){$('status').textContent=e.message}
     }
