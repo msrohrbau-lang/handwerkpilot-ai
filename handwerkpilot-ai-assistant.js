@@ -5,6 +5,30 @@
   const save=text=>{try{const key=getKey();if(key)localStorage.setItem(key,String(text||''))}catch(_){}};
   const clear=()=>{try{const key=getKey();if(key)localStorage.removeItem(key)}catch(_){}};
 
+  function dateDE(){
+    return new Intl.DateTimeFormat('de-DE',{day:'2-digit',month:'2-digit',year:'numeric'}).format(new Date());
+  }
+
+  function useFor(type, text){
+    const value=String(text||'').trim();
+    if(!value||typeof window.openDoc!=='function')return;
+    window.openDoc(type==='bericht'?'auftrag':type);
+    setTimeout(()=>{
+      const note=document.getElementById('dNote');
+      const subject=document.getElementById('dSubject');
+      const title=document.getElementById('modalTitle');
+      if(note)note.value=value;
+      if(type==='bericht'){
+        if(title)title.textContent='Bautagesbericht erstellen';
+        if(subject&&!subject.value)subject.value='Bautagesbericht – '+dateDE();
+      }else if(subject&&!subject.value){
+        subject.value=type==='rechnung'?'KI-Entwurf – Rechnung':'KI-Entwurf – Angebot';
+      }
+      const customer=document.getElementById('dCustomer');
+      if(customer)customer.focus();
+    },30);
+  }
+
   function install(){
     const out=document.getElementById('aiOut');
     if(!out||out.dataset.hpAssistantReady)return;
@@ -23,13 +47,21 @@
 
       const actions=document.createElement('div');
       actions.className='actions hp-ai-actions';
-      const copy=document.createElement('button');
-      copy.type='button'; copy.className='btn secondary'; copy.textContent='⧉ Kopieren';
-      copy.onclick=async()=>{try{await navigator.clipboard.writeText(editor.value);copy.textContent='✓ Kopiert';setTimeout(()=>copy.textContent='⧉ Kopieren',1300)}catch(_){editor.select();document.execCommand('copy');copy.textContent='✓ Kopiert';setTimeout(()=>copy.textContent='⧉ Kopieren',1300)}};
-      const remove=document.createElement('button');
-      remove.type='button'; remove.className='btn danger'; remove.textContent='🗑 Löschen';
-      remove.onclick=()=>{clear();out.replaceChildren();out.classList.add('hidden')};
-      actions.append(copy,remove);
+      const make=(label,klass,onClick)=>{
+        const b=document.createElement('button');
+        b.type='button';b.className='btn '+klass;b.textContent=label;b.onclick=onClick;return b;
+      };
+      actions.append(
+        make('→ Rechnung öffnen','blue',()=>useFor('rechnung',editor.value)),
+        make('→ Angebot öffnen','secondary',()=>useFor('angebot',editor.value)),
+        make('→ Bautagesbericht öffnen','secondary',()=>useFor('bericht',editor.value)),
+        make('⧉ Kopieren','secondary',async()=>{
+          const b=event.currentTarget;
+          try{await navigator.clipboard.writeText(editor.value)}catch(_){editor.select();document.execCommand('copy')}
+          b.textContent='✓ Kopiert';setTimeout(()=>b.textContent='⧉ Kopieren',1300);
+        }),
+        make('🗑 Löschen','danger',()=>{clear();out.replaceChildren();out.classList.add('hidden')})
+      );
       out.append(editor,actions);
       out.classList.remove('hidden');
       save(value);
@@ -38,7 +70,11 @@
     window.hpAiAssistantShow=show;
     const originalAsk=window.askAI;
     if(typeof originalAsk==='function'&&!originalAsk._hpDrafts){
-      async function askWithDraft(){await originalAsk.apply(this,arguments);const text=(out.textContent||'').trim();if(text&&text!=='KI arbeitet …')show(text)}
+      async function askWithDraft(){
+        await originalAsk.apply(this,arguments);
+        const text=(out.textContent||'').trim();
+        if(text&&text!=='KI arbeitet …')show(text);
+      }
       askWithDraft._hpDrafts=true;
       window.askAI=askWithDraft;
     }
@@ -50,7 +86,7 @@
     if(document.getElementById('hp-ai-assistant-style'))return;
     const style=document.createElement('style');
     style.id='hp-ai-assistant-style';
-    style.textContent='.hp-ai-editor{display:block;width:100%;min-height:180px;border:0;border-radius:0;background:#fafbfd;padding:14px;resize:vertical;line-height:1.5}.hp-ai-editor:focus{outline:2px solid #93b4ff;outline-offset:-2px}.hp-ai-actions{padding:10px;border-top:1px solid #dbe2ea;margin:0;background:#fff}';
+    style.textContent='.hp-ai-editor{display:block;width:100%;min-height:180px;border:0;border-radius:0;background:#fafbfd;padding:14px;resize:vertical;line-height:1.5}.hp-ai-editor:focus{outline:2px solid #93b4ff;outline-offset:-2px}.hp-ai-actions{padding:10px;border-top:1px solid #dbe2ea;margin:0;background:#fff;display:flex;flex-wrap:wrap;gap:8px}.hp-ai-actions .btn{margin:0}';
     document.head.appendChild(style);
   }
 
