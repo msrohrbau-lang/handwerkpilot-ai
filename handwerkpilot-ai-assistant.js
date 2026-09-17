@@ -12,18 +12,22 @@
   function useFor(type, text){
     const value=String(text||'').trim();
     if(!value||typeof window.openDoc!=='function')return;
-    window.openDoc(type==='bericht'?'auftrag':type);
+    if(type==='bericht'&&typeof window.openBautagesbericht==='function'){
+      window.openBautagesbericht();
+      setTimeout(()=>{
+        const work=document.getElementById('btWork');
+        const site=document.getElementById('btSite');
+        if(work)work.value=value;
+        if(site)site.focus();
+      },30);
+      return;
+    }
+    window.openDoc(type);
     setTimeout(()=>{
       const note=document.getElementById('dNote');
       const subject=document.getElementById('dSubject');
-      const title=document.getElementById('modalTitle');
       if(note)note.value=value;
-      if(type==='bericht'){
-        if(title)title.textContent='Bautagesbericht erstellen';
-        if(subject&&!subject.value)subject.value='Bautagesbericht – '+dateDE();
-      }else if(subject&&!subject.value){
-        subject.value=type==='rechnung'?'KI-Entwurf – Rechnung':'KI-Entwurf – Angebot';
-      }
+      if(subject&&!subject.value)subject.value=type==='rechnung'?'KI-Entwurf – Rechnung':'KI-Entwurf – Angebot';
       const customer=document.getElementById('dCustomer');
       if(customer)customer.focus();
     },30);
@@ -55,8 +59,8 @@
         make('→ Rechnung öffnen','blue',()=>useFor('rechnung',editor.value)),
         make('→ Angebot öffnen','secondary',()=>useFor('angebot',editor.value)),
         make('→ Bautagesbericht öffnen','secondary',()=>useFor('bericht',editor.value)),
-        make('⧉ Kopieren','secondary',async()=>{
-          const b=event.currentTarget;
+        make('⧉ Kopieren','secondary',async function(){
+          const b=this;
           try{await navigator.clipboard.writeText(editor.value)}catch(_){editor.select();document.execCommand('copy')}
           b.textContent='✓ Kopiert';setTimeout(()=>b.textContent='⧉ Kopieren',1300);
         }),
