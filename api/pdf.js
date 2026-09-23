@@ -46,7 +46,7 @@ module.exports = async function handler(req,res){
       y+=25;line(doc,y-8);
     });
     y=Math.max(y+8,350);
-    const tx=350,netAmount=Number(d.net)||positions.reduce((sum,p)=>sum+Number(p.qty||0)*Number(p.price||0),0),vatRate=Number(d.vat_rate)||19,vatAmount=d.reverse_charge?0:(Number(d.vat)||netAmount*vatRate/100),grossAmount=Number(d.gross)||netAmount+vatAmount;
+    const tx=350,netAmount=positions.reduce((sum,p)=>sum+Number(p.qty||0)*Number(p.price||0),0)||Number(d.net)||0,vatRate=Number(d.vat_rate)||19,vatAmount=d.reverse_charge?0:netAmount*vatRate/100,grossAmount=netAmount+vatAmount;
     doc.font('Helvetica').fontSize(10).fillColor(navy).text('Netto',tx,y,{width:120}).text(eur(netAmount),470,y,{width:77,align:'right'});y+=18;
     if(d.reverse_charge){doc.text('Umsatzsteuer (§ 13b)',tx,y,{width:120}).text('0,00 €',470,y,{width:77,align:'right'});}else{doc.text('MwSt. '+vatRate+' %',tx,y,{width:120}).text(eur(vatAmount),470,y,{width:77,align:'right'});}y+=19;
     doc.moveTo(tx,y).lineTo(547,y).strokeColor(navy).lineWidth(1.5).stroke();y+=5;
