@@ -18,12 +18,12 @@ module.exports = async function handler(req,res){
     const co=d.company||{},customer=d.customer||{},positions=Array.isArray(d.positions)?d.positions:[];
     const navy='#172033',muted='#667085',bottom=760;
     let logoOk=false;
-    try{if(/^data:image\//.test(co.logo_data||'')){const raw=co.logo_data.split(',')[1];if(raw){doc.image(Buffer.from(raw,'base64'),48,48,{fit:[145,55]});logoOk=true}}}catch{}
-    if(!logoOk)doc.font('Helvetica-Bold').fontSize(18).fillColor(navy).text(clean(co.name||'HandwerkPilot'),48,55,{width:250});
+    try{if(/^data:image\//.test(co.logo_data||'')){const raw=co.logo_data.split(',')[1];if(raw){doc.image(Buffer.from(raw,'base64'),420,50,{fit:[127,55],align:'right'});logoOk=true}}}catch{}
+    if(logoOk){/* Firmenlogo steht bewusst allein rechts in der Kopfzeile. */}
     const addr=[co.street,[co.zip,co.city].filter(Boolean).join(' ')].filter(Boolean).join(' · ');
     const contact=[co.phone,co.email,co.website].filter(Boolean).join(' · ');
     doc.font('Helvetica').fontSize(8).fillColor(muted).text([addr,contact].filter(Boolean).join(' · '),48,110,{width:330});
-    doc.font('Helvetica-Bold').fontSize(18).fillColor(navy).text(clean(co.name||''),370,56,{width:177,align:'right'});
+    if(logoOk){/* Logo wird oben rechts ausgegeben. */}
     line(doc,132);
     doc.font('Helvetica-Bold').fontSize(27).fillColor(navy).text(clean(d.title||'Dokument'),48,155);
     doc.font('Helvetica').fontSize(8).fillColor(muted).text(clean(co.name||''),48,203,{width:250});
@@ -46,11 +46,11 @@ module.exports = async function handler(req,res){
       y+=25;line(doc,y-8);
     });
     y=Math.max(y+8,350);
-    const tx=350;
-    doc.font('Helvetica').fontSize(10).fillColor(navy).text('Netto',tx,y,{width:120}).text(eur(d.net),470,y,{width:77,align:'right'});y+=18;
-    if(d.reverse_charge){doc.text('Umsatzsteuer (§ 13b)',tx,y,{width:120}).text('0,00 €',470,y,{width:77,align:'right'});}else{doc.text('MwSt. '+clean(d.vat_rate)+' %',tx,y,{width:120}).text(eur(d.vat),470,y,{width:77,align:'right'});}y+=19;
+    const tx=350,netAmount=Number(d.net)||positions.reduce((sum,p)=>sum+Number(p.qty||0)*Number(p.price||0),0),vatRate=Number(d.vat_rate)||19,vatAmount=d.reverse_charge?0:(Number(d.vat)||netAmount*vatRate/100),grossAmount=Number(d.gross)||netAmount+vatAmount;
+    doc.font('Helvetica').fontSize(10).fillColor(navy).text('Netto',tx,y,{width:120}).text(eur(netAmount),470,y,{width:77,align:'right'});y+=18;
+    if(d.reverse_charge){doc.text('Umsatzsteuer (§ 13b)',tx,y,{width:120}).text('0,00 €',470,y,{width:77,align:'right'});}else{doc.text('MwSt. '+vatRate+' %',tx,y,{width:120}).text(eur(vatAmount),470,y,{width:77,align:'right'});}y+=19;
     doc.moveTo(tx,y).lineTo(547,y).strokeColor(navy).lineWidth(1.5).stroke();y+=5;
-    doc.font('Helvetica-Bold').fontSize(14).text('Gesamt',tx,y,{width:120}).text(eur(d.gross),470,y,{width:77,align:'right'});y+=30;
+    doc.font('Helvetica-Bold').fontSize(14).text('Gesamt',tx,y,{width:120}).text(eur(grossAmount),470,y,{width:77,align:'right'});y+=30;
     if(d.payment_text){doc.font('Helvetica').fontSize(10).fillColor(navy).text(clean(d.payment_text),48,y,{width:499});}
     if(d.note){y+=28;doc.font('Helvetica').fontSize(9).fillColor(navy).text(clean(d.note),48,y,{width:499});}
     const legal=[co.owner&&'Inhaber/GF: '+co.owner,co.tax_number&&'St.-Nr.: '+co.tax_number,co.vat_id&&'USt-IdNr.: '+co.vat_id,co.register_court&&'Amtsgericht: '+co.register_court,co.register_number&&'Handelsregister: '+co.register_number].filter(Boolean).join(' · ');
